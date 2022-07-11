@@ -1,2 +1,4 @@
 .idea
 cmake-build-debug
+test_dir
+pipe_dir
