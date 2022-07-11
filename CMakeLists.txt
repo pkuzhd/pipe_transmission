@@ -13,14 +13,14 @@ set(OPENCV_COMPONENTS
         opencv_video)
 
 add_executable(receive
-        TestReceive.cpp
+        TestRGBDReceive.cpp
         receiver/RGBDReceiver.cpp)
 target_link_libraries(receive
         ${OPENCV_COMPONENTS}
         )
 
 add_executable(send
-        TestSend.cpp
+        TestImageSend.cpp
         receiver/RGBDReceiver.cpp)
 target_link_libraries(send
         ${OPENCV_COMPONENTS}
