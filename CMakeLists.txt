@@ -14,14 +14,14 @@ set(OPENCV_COMPONENTS
 
 add_executable(receive
         TestRGBDReceive.cpp
-        receiver/RGBDReceiver.cpp)
+        utils/RGBDReceiver.cpp)
 target_link_libraries(receive
         ${OPENCV_COMPONENTS}
         )
 
 add_executable(send
         TestImageSend.cpp
-        receiver/RGBDReceiver.cpp)
+        utils/RGBDReceiver.cpp)
 target_link_libraries(send
         ${OPENCV_COMPONENTS}
         )
