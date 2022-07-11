@@ -21,7 +21,7 @@ target_link_libraries(receive
 
 add_executable(send
         TestImageSend.cpp
-        utils/RGBDReceiver.cpp)
+        utils/RGBDReceiver.cpp utils/ImageSender.cpp utils/ImageSender.h)
 target_link_libraries(send
         ${OPENCV_COMPONENTS}
         )
