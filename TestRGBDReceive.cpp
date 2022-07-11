@@ -14,8 +14,8 @@ using namespace std;
 
 void save(string path, int idx, RGBDData *data) {
     for (int i = 0; i < data->n; ++i) {
-        cv::Mat img(data->h, data->w, CV_8UC3);
-        memcpy(img.data, data->getImage(i), data->w * data->h * 3);
+        cv::Mat img(data->h[i], data->w[i], CV_8UC3);
+        memcpy(img.data, data->getImage(i), data->w[i] * data->h[i] * 3);
         cv::imwrite(path + to_string(idx + 1) + "-" + to_string(i + 1) + ".jpg", img);
     }
 }

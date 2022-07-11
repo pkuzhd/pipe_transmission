@@ -10,8 +10,8 @@
 
 struct RGBDData {
     int n;
-    int w, h;
-    int w_crop, h_crop, x, y;
+    int *w, *h;
+    int *w_crop, *h_crop, *x, *y;
     char *imgs;
     char *depths;
     char *masks;
