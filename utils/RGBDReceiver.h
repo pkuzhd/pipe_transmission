@@ -6,7 +6,17 @@
 #define PIPE_TRANSMISSION_RGBDRECEIVER_H
 
 #include <string>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <cstring>
+#include <cstdio>
+#include <iostream>
+#include <json.h>
 
+#define ARRAYSIZE 1024
 
 struct RGBDData {
     int n;
@@ -23,11 +33,14 @@ struct RGBDData {
 
 class RGBDReceiver {
 public:
+    int32_t fd;
+
     RGBDReceiver();
     ~RGBDReceiver();
 
     int open(std::string filename);
     int close();
+    int IsFileExist(const char* path);
 
     RGBDData *getData();
 };
