@@ -29,40 +29,66 @@ char *RGBDData::getMask(int i) {
 }
 
 RGBDData *RGBDReceiver::getData() {
-    const int32_t bufSize = 1024;
+    const int32_t bufSize = 82;
     char readBuf[bufSize];
+    memset(readBuf, '\0', bufSize);
+    RGBDData * rgbdData = (RGBDData*) malloc(sizeof(RGBDData));
+
     if (read(fd, readBuf, bufSize) < 0) {
         std::cout << "read error\n";
-        return NULL;
+        return nullptr;
     }
     else {
-        Json::Reader reader;
-        Json::Value root;
-        RGBDData * rgbdData = new RGBDData;
+        int cur = 0;
 
-        rgbdData->imgs = (char*) malloc(sizeof(ARRAYSIZE));
-        rgbdData->depths = (char*) malloc(sizeof(ARRAYSIZE));
-        rgbdData->masks = (char*) malloc(sizeof(ARRAYSIZE));
+        uint8_t N;
+        memcpy(&N, readBuf, sizeof(unsigned char));
+        rgbdData->n = (int)N;
+        std::cout << "now length is: " << rgbdData->n << std::endl;
+
+        cur += sizeof(unsigned char);
+
+        rgbdData->w = (int*) malloc(sizeof(int) * N);
+        rgbdData->h = (int*) malloc(sizeof(int) * N);
+        rgbdData->x = (int*) malloc(sizeof(int) * N);
+        rgbdData->y = (int*) malloc(sizeof(int) * N);
+        rgbdData->w_crop = (int*) malloc(sizeof(int) * N);
+        rgbdData->h_crop = (int*) malloc(sizeof(int) * N);
+
+        for(int i = 0 ; i < N ; i++){
+            uint32_t w;
+            memcpy(&w, readBuf + cur, sizeof(unsigned int));
+
+            cur += sizeof(unsigned int);
+
+            uint32_t h;
+            memcpy(&h, readBuf + cur, sizeof(unsigned int));
+
+            cur += sizeof(unsigned int);
+
+            uint32_t x;
+            memcpy(&x, readBuf + cur, sizeof(unsigned int));
+
+            cur += sizeof(unsigned int);
+
+            uint32_t y;
+            memcpy(&y, readBuf + cur, sizeof(unsigned int));
+
+            cur += sizeof(unsigned int);
+
+            rgbdData->w[i] = (int)w;
+            rgbdData->h[i] = (int)h;
+            rgbdData->x[i] = (int)x;
+            rgbdData->y[i] = (int)y;
+            rgbdData->w_crop[i] = (int)w;
+            rgbdData->h_crop[i] = (int)h;
 
 
-        if (reader.parse(readBuf, root)){
-            int n = root["N"].asInt();
-            std::string imgs = root["imgs"].asString();
-            std::string depths = root["depths"].asString();
-            std::string masks = root["masks"].asString();
-            rgbdData->n = n;
-            strcpy(rgbdData->imgs, imgs.c_str());
-            strcpy(rgbdData->depths, depths.c_str());
-            strcpy(rgbdData->masks, masks.c_str());
-            for(int i = 0 ; i < 5 ; i++){
-                std::string crop = root["crops"][i].asString();
-                cout << crop << endl;
-            }
+
 
         }
 
-        std::cout << "recv msg: ";
-        std::cout << readBuf << '\n';
+
         return rgbdData;
     }
     return nullptr;
@@ -77,22 +103,28 @@ RGBDReceiver::RGBDReceiver() {
 }
 
 int RGBDReceiver::open(std::string filename) {
-    if(IsFileExist(filename.c_str())){
+    if(isFileExists_stat(filename)){
+        std::cout << filename << std::endl;
         remove(filename.c_str());
     }
     int32_t ret = mkfifo(filename.c_str(), S_IFIFO | 0666);
     if (ret == -1){
+        std::cout << errno << std::endl;
         std::cout << "Make fifo error\n";
         return -1;
     }
     fd = ::open(filename.c_str(), O_RDONLY);
+    if(fd < 0){
+        return fd;
+    }
     return 0;
 }
 
 int RGBDReceiver::close() {
-    ::close(fd);
-    return 0;
+    int ret = ::close(fd);
+    return ret;
 }
-int IsFileExist(const char* path){
-    return !access(path, F_OK);
+bool RGBDReceiver::isFileExists_stat(std::string& name) {
+    struct stat buffer;
+    return (stat(name.c_str(), &buffer) == 0);
 }
