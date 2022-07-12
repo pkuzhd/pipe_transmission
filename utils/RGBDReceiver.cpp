@@ -23,7 +23,7 @@ char *RGBDData::getDepth(int i) {
 char *RGBDData::getMask(int i) {
     int bias = 0;
     for(int j = 0 ; j < i ; j++){
-        bias += w[j] * h[j];
+        bias += w_crop[j] * h_crop[j];
     }
     return imgs + bias;
 }
