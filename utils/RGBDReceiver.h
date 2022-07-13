@@ -14,9 +14,7 @@
 #include <cstring>
 #include <cstdio>
 #include <iostream>
-#include <json.h>
 
-#define ARRAYSIZE 1024
 
 struct RGBDData {
     int n;
@@ -40,7 +38,7 @@ public:
 
     int open(std::string filename);
     int close();
-    int IsFileExist(const char* path);
+    bool isFileExists_stat(std::string& name);
 
     RGBDData *getData();
 };
