@@ -24,28 +24,30 @@ class RGBDSender():
         os.close(self.wf)
 
     def sendData(self, data: RGBDData):
+
         #send N
         msg = data.N.to_bytes(1, "little")
+
+        # send crops
         for i in range(data.N):
-            # send crops
             for j in range(4):
                 msg += data.crops[i][j].to_bytes(4, "little")
-        print(msg)
+        #print(msg)
 
+        # send imgs
         for i in range(data.N):
-            # send imgs
             w = data.crops[i][0]
             h = data.crops[i][1]
             msg += data.imgs[i].data.tobytes()
 
+        # send depths
         for i in range(data.N):
-            # send depths
             w_crop = data.crops[i][0]
             h_crop = data.crops[i][1]
             msg += data.depths[i].data.tobytes()
 
+        # send masks
         for i in range(data.N):
-            # send masks
             w_crop = data.crops[i][0]
             h_crop = data.crops[i][1]
             msg += data.masks[i].data.tobytes()
