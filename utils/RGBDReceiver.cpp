@@ -36,6 +36,7 @@ RGBDData *RGBDReceiver::getData() {
 
     if (read(fd, readBuf, bufSize) < 0) {
         std::cout << "read error\n";
+        free(rgbdData);
         return nullptr;
     }
     else {
@@ -48,14 +49,15 @@ RGBDData *RGBDReceiver::getData() {
 
         cur += sizeof(unsigned char);
 
-        rgbdData->w = (int*) malloc(sizeof(int) * N);
-        rgbdData->h = (int*) malloc(sizeof(int) * N);
-        rgbdData->x = (int*) malloc(sizeof(int) * N);
-        rgbdData->y = (int*) malloc(sizeof(int) * N);
-        rgbdData->w_crop = (int*) malloc(sizeof(int) * N);
-        rgbdData->h_crop = (int*) malloc(sizeof(int) * N);
+        rgbdData->w = (int*) malloc(sizeof(int) * rgbdData->n);
+        rgbdData->h = (int*) malloc(sizeof(int) * rgbdData->n);
+        rgbdData->x = (int*) malloc(sizeof(int) * rgbdData->n);
+        rgbdData->y = (int*) malloc(sizeof(int) * rgbdData->n);
+        rgbdData->w_crop = (int*) malloc(sizeof(int) * rgbdData->n);
+        rgbdData->h_crop = (int*) malloc(sizeof(int) * rgbdData->n);
 
-        for(int i = 0 ; i < N ; i++){
+
+        for(int i = 0 ; i < rgbdData->n ; i++){
             uint32_t w;
             memcpy(&w, readBuf + cur, sizeof(unsigned int));
 
@@ -84,9 +86,72 @@ RGBDData *RGBDReceiver::getData() {
             rgbdData->h_crop[i] = (int)h;
 
 
-
-
         }
+
+        int total_imgs_len = 0;
+        for(int i = 0 ; i < N ; i++){
+            total_imgs_len += rgbdData->w[i] * rgbdData->h[i] * 3;
+        }
+        int total_depths_len = 0;
+        for(int i = 0 ; i < N ; i++){
+            total_depths_len += rgbdData->w_crop[i] * rgbdData->h_crop[i] * 4;
+        }
+        int total_masks_len = 0;
+        for(int i = 0 ; i < N ; i++){
+            total_masks_len += rgbdData->w_crop[i] * rgbdData->h_crop[i];
+        }
+
+        rgbdData->imgs = (char*) malloc(sizeof(total_imgs_len));
+        rgbdData->depths = (char*) malloc(sizeof(total_depths_len));
+        rgbdData->masks = (char*) malloc(sizeof(total_masks_len));
+
+        memset(readBuf, '\0', bufSize);
+        int imgs_len = 0;
+        while(imgs_len < total_imgs_len){
+            int len = read(fd, readBuf, bufSize);
+            memcpy(rgbdData->imgs + imgs_len, readBuf, bufSize);
+            imgs_len += len;
+            memset(readBuf, '\0', bufSize);
+        }
+        if(imgs_len > total_imgs_len){
+            char temp[imgs_len - total_imgs_len + 3];
+            memcpy(temp, rgbdData->imgs + total_imgs_len, imgs_len - total_imgs_len);
+            temp[imgs_len - total_imgs_len] = '\0';
+            memset(temp, '\0', sizeof(temp));
+            memcpy(rgbdData->depths, temp, imgs_len - total_imgs_len);
+        }
+        std::cout << imgs_len << " " << total_imgs_len << std::endl;
+
+
+        memset(readBuf, '\0', bufSize);
+        int depths_len = imgs_len - total_imgs_len;
+        while(depths_len < total_depths_len){
+            int len = read(fd, readBuf, bufSize);
+            memcpy(rgbdData->depths + depths_len, readBuf, bufSize);
+            depths_len += len;
+            memset(readBuf, '\0', bufSize);
+        }
+        if(depths_len > total_depths_len){
+            char temp[depths_len - total_depths_len + 3];
+            memcpy(temp, rgbdData->depths + total_depths_len, depths_len - total_depths_len);
+            temp[depths_len - total_depths_len] = '\0';
+            memset(temp, '\0', sizeof(temp));
+            memcpy(rgbdData->masks, temp, depths_len - total_depths_len);
+        }
+        std::cout << depths_len  << " " << total_depths_len << std::endl;
+
+
+        memset(readBuf, '\0', bufSize);
+        int masks_len = depths_len - total_depths_len;
+        while(masks_len < total_masks_len){
+            int len = read(fd, readBuf, bufSize);
+            memcpy(rgbdData->masks + masks_len, readBuf, bufSize);
+            masks_len += len;
+            memset(readBuf, '\0', bufSize);
+        }
+
+        std::cout << masks_len  << " " << total_masks_len << std::endl;
+
 
 
         return rgbdData;
