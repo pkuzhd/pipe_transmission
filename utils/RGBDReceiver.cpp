@@ -112,9 +112,9 @@ RGBDData *RGBDReceiver::getData() {
 
         std::cout << "3333" << std::endl;
 
-        rgbdData->imgs = (char*) malloc(sizeof(total_imgs_len));
-        rgbdData->depths = (char*) malloc(sizeof(total_depths_len));
-        rgbdData->masks = (char*) malloc(sizeof(total_masks_len));
+        rgbdData->imgs = (char*) malloc(total_imgs_len);
+        rgbdData->depths = (char*) malloc(total_depths_len);
+        rgbdData->masks = (char*) malloc(total_masks_len);
 
         std::cout << "3334" << std::endl;
 
