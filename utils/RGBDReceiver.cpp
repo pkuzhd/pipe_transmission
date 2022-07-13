@@ -27,14 +27,53 @@ char *RGBDData::getMask(int i) {
     }
     return imgs + bias;
 }
+void readdata_thread(RGBDReceiver * R){
+    while(1){
+        RGBDData * rgbdData = R->getSingleFrame();
+        while(!rgbdData){
+            rgbdData = R->getSingleFrame();
+        }
+        R->addData(rgbdData);
+    }
+}
+void RGBDReceiver::addData(RGBDData *data){
 
-RGBDData *RGBDReceiver::getData() {
+    while(1){
+        bool flag;
+        m.lock();
+        if(queue.size() > 10){
+            flag = 0;
+        }
+        else{
+            queue.push(data);
+            flag = 1;
+        }
+        m.unlock();
+        if(flag == 1){
+            break;
+        }
+    }
+}
+RGBDData * RGBDReceiver::getData(){
+    m.lock();
+    if(queue.size() == 0){
+        m.unlock();
+        return nullptr;
+    }
+    std::cout << "now queue size is:" << queue.size() << std::endl;
+    RGBDData * rgbdData = queue.front();
+    queue.pop();
+    m.unlock();
+    return rgbdData;
+
+}
+RGBDData *RGBDReceiver::getSingleFrame() {
     const int32_t bufSize = 81;
     char readBuf[bufSize];
     memset(readBuf, '\0', bufSize);
     RGBDData * rgbdData = (RGBDData*) malloc(sizeof(RGBDData));
 
-    if (read(fd, readBuf, bufSize) < 0) {
+    if (read(fd, readBuf, bufSize) <= 0) {
         std::cout << "read error\n";
         free(rgbdData);
         return nullptr;
@@ -127,10 +166,6 @@ RGBDData *RGBDReceiver::getData() {
             int len = read(fd, readBuf, bufSize);
             memcpy(rgbdData->imgs + imgs_len, readBuf, len);
             imgs_len += len;
-//            i++;
-//            if(i % 10 == 0){
-//                std::cout << imgs_len << std::endl;
-//            }
             memset(readBuf, '\0', bufSize);
         }
         std::cout << "3336" << std::endl;
@@ -153,10 +188,6 @@ RGBDData *RGBDReceiver::getData() {
             int len = read(fd, readBuf, bufSize);
             memcpy(rgbdData->depths + depths_len, readBuf, len);
             depths_len += len;
-//            i++;
-//            if(i % 10 == 0){
-//                std::cout << depths_len << std::endl;
-//            }
             memset(readBuf, '\0', bufSize);
         }
         std::cout << "3338" << std::endl;
@@ -181,10 +212,6 @@ RGBDData *RGBDReceiver::getData() {
             int len = read(fd, readBuf, bufSize);
             memcpy(rgbdData->masks + masks_len, readBuf, len);
             masks_len += len;
-//            i++;
-//            if(i % 10 == 0){
-//                std::cout << masks_len << std::endl;
-//            }
             memset(readBuf, '\0', bufSize);
         }
         std::cout << "33310" << std::endl;
@@ -229,6 +256,8 @@ int RGBDReceiver::open(std::string filename) {
     if(fd < 0){
         return fd;
     }
+    std::thread th(readdata_thread, this);
+    th.detach();
     return 0;
 }
 
