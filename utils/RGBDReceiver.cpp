@@ -29,7 +29,7 @@ char *RGBDData::getMask(int i) {
 }
 
 RGBDData *RGBDReceiver::getData() {
-    const int32_t bufSize = 82;
+    const int32_t bufSize = 81;
     char readBuf[bufSize];
     memset(readBuf, '\0', bufSize);
     RGBDData * rgbdData = (RGBDData*) malloc(sizeof(RGBDData));
@@ -49,12 +49,16 @@ RGBDData *RGBDReceiver::getData() {
 
         cur += sizeof(unsigned char);
 
+        printf("11111");
+
         rgbdData->w = (int*) malloc(sizeof(int) * rgbdData->n);
         rgbdData->h = (int*) malloc(sizeof(int) * rgbdData->n);
         rgbdData->x = (int*) malloc(sizeof(int) * rgbdData->n);
         rgbdData->y = (int*) malloc(sizeof(int) * rgbdData->n);
         rgbdData->w_crop = (int*) malloc(sizeof(int) * rgbdData->n);
         rgbdData->h_crop = (int*) malloc(sizeof(int) * rgbdData->n);
+
+        printf("11112");
 
 
         for(int i = 0 ; i < rgbdData->n ; i++){
@@ -85,73 +89,116 @@ RGBDData *RGBDReceiver::getData() {
             rgbdData->w_crop[i] = (int)w;
             rgbdData->h_crop[i] = (int)h;
 
+            std::cout << "now y[i] is: " << rgbdData->y[i] << std::endl;
+
 
         }
 
         int total_imgs_len = 0;
-        for(int i = 0 ; i < N ; i++){
+        for(int i = 0 ; i < rgbdData->n ; i++){
             total_imgs_len += rgbdData->w[i] * rgbdData->h[i] * 3;
         }
+        std::cout << total_imgs_len << std::endl;
         int total_depths_len = 0;
-        for(int i = 0 ; i < N ; i++){
+        for(int i = 0 ; i < rgbdData->n ; i++){
             total_depths_len += rgbdData->w_crop[i] * rgbdData->h_crop[i] * 4;
         }
+        std::cout << total_depths_len << std::endl;
         int total_masks_len = 0;
-        for(int i = 0 ; i < N ; i++){
+        for(int i = 0 ; i < rgbdData->n ; i++){
             total_masks_len += rgbdData->w_crop[i] * rgbdData->h_crop[i];
         }
+        std::cout << total_masks_len << std::endl;
+
+        std::cout << "3333" << std::endl;
 
         rgbdData->imgs = (char*) malloc(sizeof(total_imgs_len));
         rgbdData->depths = (char*) malloc(sizeof(total_depths_len));
         rgbdData->masks = (char*) malloc(sizeof(total_masks_len));
 
+        std::cout << "3334" << std::endl;
+
+        // add the imgs
         memset(readBuf, '\0', bufSize);
         int imgs_len = 0;
-        while(imgs_len < total_imgs_len){
+        std::cout << "3335" << std::endl;
+        int i = 0;
+        while(imgs_len + bufSize < total_imgs_len){
             int len = read(fd, readBuf, bufSize);
-            memcpy(rgbdData->imgs + imgs_len, readBuf, bufSize);
+            memcpy(rgbdData->imgs + imgs_len, readBuf, len);
             imgs_len += len;
+//            i++;
+//            if(i % 10 == 0){
+//                std::cout << imgs_len << std::endl;
+//            }
             memset(readBuf, '\0', bufSize);
         }
-        if(imgs_len > total_imgs_len){
-            char temp[imgs_len - total_imgs_len + 3];
-            memcpy(temp, rgbdData->imgs + total_imgs_len, imgs_len - total_imgs_len);
-            temp[imgs_len - total_imgs_len] = '\0';
-            memset(temp, '\0', sizeof(temp));
-            memcpy(rgbdData->depths, temp, imgs_len - total_imgs_len);
-        }
+        std::cout << "3336" << std::endl;
+
+        // add the remain total - imgs_len part
+        memset(readBuf, '\0', bufSize);
+        int len = read(fd, readBuf, total_imgs_len - imgs_len);
+        std::cout << len << std::endl;
+        memcpy(rgbdData->imgs + imgs_len, readBuf, total_imgs_len - imgs_len);
+        imgs_len += len;
+
         std::cout << imgs_len << " " << total_imgs_len << std::endl;
 
-
+        // add the depths part
         memset(readBuf, '\0', bufSize);
-        int depths_len = imgs_len - total_imgs_len;
-        while(depths_len < total_depths_len){
+        int depths_len = 0;
+        std::cout << "3337" << std::endl;
+        i = 0;
+        while(depths_len + bufSize < total_depths_len){
             int len = read(fd, readBuf, bufSize);
-            memcpy(rgbdData->depths + depths_len, readBuf, bufSize);
+            memcpy(rgbdData->depths + depths_len, readBuf, len);
             depths_len += len;
+//            i++;
+//            if(i % 10 == 0){
+//                std::cout << depths_len << std::endl;
+//            }
             memset(readBuf, '\0', bufSize);
         }
-        if(depths_len > total_depths_len){
-            char temp[depths_len - total_depths_len + 3];
-            memcpy(temp, rgbdData->depths + total_depths_len, depths_len - total_depths_len);
-            temp[depths_len - total_depths_len] = '\0';
-            memset(temp, '\0', sizeof(temp));
-            memcpy(rgbdData->masks, temp, depths_len - total_depths_len);
-        }
-        std::cout << depths_len  << " " << total_depths_len << std::endl;
+        std::cout << "3338" << std::endl;
 
+        std::cout << depths_len << " " << total_depths_len << std::endl;
 
+        // add the remain total - depths_len part
         memset(readBuf, '\0', bufSize);
-        int masks_len = depths_len - total_depths_len;
-        while(masks_len < total_masks_len){
+        len = read(fd, readBuf, total_depths_len - depths_len);
+        std::cout << len << std::endl;
+        memcpy(rgbdData->depths + depths_len, readBuf, total_depths_len - depths_len);
+        depths_len += len;
+
+        std::cout << depths_len << " " << total_depths_len << std::endl;
+
+        // add the masks part
+        memset(readBuf, '\0', bufSize);
+        int masks_len = 0;
+        std::cout << "3339" << std::endl;
+        i = 0;
+        while(masks_len + bufSize < total_masks_len){
             int len = read(fd, readBuf, bufSize);
-            memcpy(rgbdData->masks + masks_len, readBuf, bufSize);
+            memcpy(rgbdData->masks + masks_len, readBuf, len);
             masks_len += len;
+//            i++;
+//            if(i % 10 == 0){
+//                std::cout << masks_len << std::endl;
+//            }
             memset(readBuf, '\0', bufSize);
         }
+        std::cout << "33310" << std::endl;
 
-        std::cout << masks_len  << " " << total_masks_len << std::endl;
+        std::cout << masks_len << " " << total_masks_len << std::endl;
 
+        // add the remain total - masks_len part
+        memset(readBuf, '\0', bufSize);
+        len = read(fd, readBuf, total_masks_len - masks_len);
+        std::cout << len << std::endl;
+        memcpy(rgbdData->masks + masks_len, readBuf, total_masks_len - masks_len);
+        masks_len += len;
+
+        std::cout << masks_len << " " << total_masks_len << std::endl;
 
 
         return rgbdData;
