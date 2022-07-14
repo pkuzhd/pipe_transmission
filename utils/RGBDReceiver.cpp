@@ -3,6 +3,11 @@
 //
 
 #include "RGBDReceiver.h"
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 char *RGBDData::getImage(int i) {
     int bias = 0;

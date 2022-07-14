@@ -6,11 +6,6 @@
 #define PIPE_TRANSMISSION_RGBDRECEIVER_H
 
 #include <string>
-#include <sys/types.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <cstring>
 #include <cstdio>
 #include <iostream>
