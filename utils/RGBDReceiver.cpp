@@ -22,7 +22,7 @@ char *RGBDData::getDepth(int i) {
     for(int j = 0 ; j < i ; j++){
         bias += w_crop[j] * h_crop[j] * 4;
     }
-    return imgs + bias;
+    return depths + bias;
 }
 
 char *RGBDData::getMask(int i) {
@@ -30,7 +30,7 @@ char *RGBDData::getMask(int i) {
     for(int j = 0 ; j < i ; j++){
         bias += w_crop[j] * h_crop[j];
     }
-    return imgs + bias;
+    return masks + bias;
 }
 void readdata_thread(RGBDReceiver * R){
     while(1){
