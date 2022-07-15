@@ -55,9 +55,11 @@ int ImageSender::sendData(ImageData *data) {
         memcpy(bytes + cur, data->imgs + cur_img, data->w[i] * data->h[i] * 3);
         cur += data->w[i] * data->h[i] * 3;
         cur_img += data->w[i] * data->h[i] * 3;
+        std::cout << "now cur_img is:" << cur_img << std::endl;
     }
     std::cout << "now cur is : " << cur << std::endl;
     int len = write(fd, bytes, cur);
+    delete[] bytes;
     std::cout << "total bytes sent is: " << len << std::endl;
     return 0;
 }
