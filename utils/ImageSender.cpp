@@ -59,7 +59,7 @@ int ImageSender::sendData(ImageData *data) {
     }
     std::cout << "now cur is : " << cur << std::endl;
     int len = write(fd, bytes, cur);
-    delete[] bytes;
+    free(bytes);
     std::cout << "total bytes sent is: " << len << std::endl;
     return 0;
 }
