@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import json
+import datetime
 
 class RGBDData():
     def __init__(self, N, imgs, depths, masks, crops):
@@ -17,13 +18,15 @@ class RGBDSender():
         self.wf = 0
 
     def open(self, filename):
-        self.wf = os.open(filename, os.O_SYNC | os.O_CREAT | os.O_RDWR)
+        self.wf = os.open(filename, os.O_WRONLY)
 
 
     def close(self):
         os.close(self.wf)
 
     def sendData(self, data: RGBDData):
+
+
 
         #send N
         msg = data.N.to_bytes(1, "little")
@@ -51,7 +54,16 @@ class RGBDSender():
             w_crop = data.crops[i][0]
             h_crop = data.crops[i][1]
             msg += data.masks[i].data.tobytes()
+
+        time_total = 0
+        start_time = datetime.datetime.now()
         len_send = os.write(self.wf, msg)
+        end_time = datetime.datetime.now()
+        time_total += ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
+
+
         print(f"length of msg is : {len_send}")
+
+        return len_send, time_total
 
 
