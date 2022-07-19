@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <ctime>
 
 #define BUFSIZE 1000000000
 
@@ -58,10 +59,12 @@ int ImageSender::sendData(ImageData *data) {
         std::cout << "now cur_img is:" << cur_img << std::endl;
     }
     std::cout << "now cur is : " << cur << std::endl;
+
     int len = write(fd, bytes, cur);
+
     free(bytes);
     std::cout << "total bytes sent is: " << len << std::endl;
-    return 0;
+    return len;
 }
 
 bool ImageSender::isFileExists_stat(std::string& name) {
