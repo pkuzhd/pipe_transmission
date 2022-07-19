@@ -12,8 +12,13 @@ set(OPENCV_COMPONENTS
         opencv_objdetect
         opencv_video)
 
-add_library(TransLib utils/ImageSender.cpp utils/RGBDReceiver.cpp utils/FileRGBDReceiver.cpp utils/FileRGBDReceiver.h utils/RGBDData.cpp utils/RGBDData.h)
-set_target_properties(TransLib PROPERTIES PUBLIC_HEADER ${CMAKE_SOURCE_DIR}/utils/RGBDReceiver.h)
+add_library(TransLib
+        utils/ImageSender.cpp
+        utils/RGBDReceiver.cpp
+        utils/FileRGBDReceiver.cpp
+        utils/RGBDData.cpp
+        )
+#set_target_properties(TransLib PROPERTIES PUBLIC_HEADER ${CMAKE_SOURCE_DIR}/utils/RGBDReceiver.h)
 
 add_executable(receive
         TestRGBDReceive.cpp)

@@ -15,7 +15,7 @@
 
 #include "IRGBDReceiver.h"
 
-class RGBDReceiver {
+class RGBDReceiver : public IRGBDReceiver {
 public:
     int32_t fd;
     std::queue<RGBDData *> queue;

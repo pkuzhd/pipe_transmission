@@ -11,8 +11,6 @@
 class IRGBDReceiver {
 public:
 
-    virtual ~IRGBDReceiver() = 0;
-
     virtual int open(std::string filename) = 0;
 
     virtual int close() = 0;

@@ -8,7 +8,20 @@
 #include "IRGBDReceiver.h"
 
 class FileRGBDReceiver : public IRGBDReceiver {
+public:
+    FileRGBDReceiver();
 
+    ~FileRGBDReceiver();
+
+    int open(std::string filename) override;
+
+    int close() override;
+
+    RGBDData *getData() override;
+
+public:
+    int current_idx = 1;
+    std::string path;
 };
 
 
