@@ -9,34 +9,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-char *RGBDData::getImage(int i) {
-    int bias = 0;
-    for (int j = 0; j < i; j++) {
-        bias += w[j] * h[j] * 3;
-    }
-    return imgs + bias;
-}
-
-char *RGBDData::getDepth(int i) {
-    int bias = 0;
-    for (int j = 0; j < i; j++) {
-        bias += w_crop[j] * h_crop[j] * 4;
-    }
-    return depths + bias;
-}
-
-char *RGBDData::getMask(int i) {
-    int bias = 0;
-    for (int j = 0; j < i; j++) {
-        bias += w_crop[j] * h_crop[j];
-    }
-    return masks + bias;
-}
-
-void readdata_thread(RGBDReceiver *R) {
-    while (1) {
-        RGBDData *rgbdData = R->getSingleFrame();
-        while (!rgbdData) {
+void readdata_thread(RGBDReceiver * R){
+    while(1){
+        RGBDData * rgbdData = R->getSingleFrame();
+        while(!rgbdData){
             rgbdData = R->getSingleFrame();
         }
         R->addData(rgbdData);
