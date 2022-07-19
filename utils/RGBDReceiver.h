@@ -13,19 +13,7 @@
 #include <mutex>
 #include <queue>
 
-
-struct RGBDData {
-    int n;
-    int *w, *h;
-    int *w_crop, *h_crop, *x, *y;
-    char *imgs;
-    char *depths;
-    char *masks;
-
-    char *getImage(int i);
-    char *getDepth(int i);
-    char *getMask(int i);
-};
+#include "IRGBDReceiver.h"
 
 class RGBDReceiver {
 public:
