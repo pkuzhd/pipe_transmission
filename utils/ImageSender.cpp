@@ -65,6 +65,8 @@ int ImageSender::sendData(ImageData *data) {
     free(bytes);
     std::cout << "total bytes sent is: " << len << std::endl;
     return len;
+    free(bytes);
+    return 0;
 }
 
 bool ImageSender::isFileExists_stat(std::string& name) {
