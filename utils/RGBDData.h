@@ -15,6 +15,10 @@ public:
     char *depths;
     char *masks;
 
+    RGBDData();
+
+    ~RGBDData();
+
     char *getImage(int i);
 
     char *getDepth(int i);

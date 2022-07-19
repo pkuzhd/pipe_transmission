@@ -7,6 +7,10 @@
 
 #include "IRGBDReceiver.h"
 
+#include <queue>
+#include <thread>
+#include <mutex>
+
 class FileRGBDReceiver : public IRGBDReceiver {
 public:
     FileRGBDReceiver();
@@ -19,9 +23,16 @@ public:
 
     RGBDData *getData() override;
 
+    int getBufferSize() override;
+
 public:
     int current_idx = 1;
     std::string path;
+    std::queue<RGBDData *> buffer;
+    std::mutex m;
+    std::thread *t;
+
+    RGBDData *_getData();
 };
 
 

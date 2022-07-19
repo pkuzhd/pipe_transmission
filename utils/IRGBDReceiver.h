@@ -16,6 +16,8 @@ public:
     virtual int close() = 0;
 
     virtual RGBDData *getData() = 0;
+
+    virtual int getBufferSize() = 0;
 };
 
 
