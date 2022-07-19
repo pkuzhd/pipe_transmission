@@ -7,6 +7,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
+#include <sys/time.h>
 
 using namespace std;
 
@@ -23,7 +24,10 @@ int main() {
 
     ImageSender sender;
     sender.open("../pipe_dir/pipe1");
-    for (int j = 0; j < 5; ++j) {
+    long time_total = 0;
+    long long int bytes_sent = 0;
+
+    for (int j = 0; j < 100; ++j) {
         ImageData *data = new ImageData;
         data->n = 5;
         data->w = new int[data->n];
@@ -36,7 +40,19 @@ int main() {
             memcpy(data->imgs + 2160 * 3840 * 3 * i, img.data, 2160 * 3840 * 3);
         }
         save(test_path, j, data);
-        sender.sendData(data);
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        long now1 = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+        int len = sender.sendData(data);
+        gettimeofday(&tv, NULL);
+        long now2 = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+        std::cout << "time spent: " << now2 - now1 << std::endl;
+        time_total += now2 - now1;
+        bytes_sent += len;
+        cout << bytes_sent << "B" << " ";
+        cout << time_total << "ms" << " ";
+        cout << bytes_sent / time_total / 1000 << "MB/s" << endl;
+
     }
 
     sender.close();
