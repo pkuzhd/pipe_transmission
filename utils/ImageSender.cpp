@@ -61,6 +61,7 @@ int ImageSender::sendData(ImageData *data) {
     int len = write(fd, bytes, cur);
     free(bytes);
     std::cout << "total bytes sent is: " << len << std::endl;
+    free(bytes);
     return 0;
 }
 
