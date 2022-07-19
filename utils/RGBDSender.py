@@ -37,33 +37,29 @@ class RGBDSender():
                 msg += data.crops[i][j].to_bytes(4, "little")
         #print(msg)
 
+        len_send = os.write(self.wf, msg)
+
         # send imgs
         for i in range(data.N):
             w = data.crops[i][0]
             h = data.crops[i][1]
-            msg += data.imgs[i].data.tobytes()
+            len_send += os.write(self.wf, data.imgs[i].data.tobytes())
 
         # send depths
         for i in range(data.N):
             w_crop = data.crops[i][0]
             h_crop = data.crops[i][1]
-            msg += data.depths[i].data.tobytes()
+            len_send += os.write(self.wf, data.depths[i].data.tobytes())
 
         # send masks
         for i in range(data.N):
             w_crop = data.crops[i][0]
             h_crop = data.crops[i][1]
-            msg += data.masks[i].data.tobytes()
-
-        time_total = 0
-        start_time = datetime.datetime.now()
-        len_send = os.write(self.wf, msg)
-        end_time = datetime.datetime.now()
-        time_total += ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
+            len_send += os.write(self.wf, data.masks[i].data.tobytes())
 
 
         print(f"length of msg is : {len_send}")
+        return len_send
 
-        return len_send, time_total
 
 
