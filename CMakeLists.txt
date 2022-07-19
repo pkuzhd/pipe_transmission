@@ -19,7 +19,10 @@ add_library(TransLib
         utils/RGBDData.cpp
         )
 #set_target_properties(TransLib PROPERTIES PUBLIC_HEADER ${CMAKE_SOURCE_DIR}/utils/RGBDReceiver.h)
-
+target_link_libraries(
+        TransLib
+        ${OPENCV_COMPONENTS}
+)
 add_executable(receive
         TestRGBDReceive.cpp)
 target_link_libraries(receive

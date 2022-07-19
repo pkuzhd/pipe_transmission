@@ -46,9 +46,6 @@ RGBDData *FileRGBDReceiver::getData() {
     data->h_crop = new int[data->n];
     data->x = new int[data->n];
     data->y = new int[data->n];
-    data->imgs = new char[1920 * 1080 * 3 * 5];
-    data->depths = new char[800 * 900 * 3 * 5];
-    data->masks = new char[800 * 900 * 3 * 5];
     for (int i = 0; i < 5; ++i) {
         data->w[i] = 1920;
         data->h[i] = 1080;
@@ -57,20 +54,24 @@ RGBDData *FileRGBDReceiver::getData() {
         data->x[i] = crop[i][0];
         data->y[i] = crop[i][1];
     }
+    data->imgs = new char[1920 * 1080 * 3 * 5];
+    data->depths = new char[data->w_crop[0] * data->h_crop[0] * 4 * 3 * 5];
+    data->masks = new char[data->w_crop[0] * data->h_crop[0] * 3 * 5];
     for (int i = 0; i < 5; ++i) {
-        cv::Mat img = cv::imread(path + "video/" + to_string(i + 1) + "-" + to_string(current_idx) + ".png");
+        cv::Mat img = cv::imread(path + "video/" + to_string(i + 1) + "-" + to_string(current_idx * 5 + 96) + ".png");
         memcpy(data->getImage(i), img.data, 1920 * 1080 * 3);
     }
     for (int i = 0; i < 5; ++i) {
-        cv::Mat mask = cv::imread(path + "mask/" + to_string(i + 1) + "-" + to_string(current_idx) + ".png",
+        cv::Mat mask = cv::imread(path + "mask/" + to_string(i + 1) + "-" + to_string(current_idx * 5 + 96) + ".png",
                                   cv::IMREAD_GRAYSCALE);
-        memcpy(data->getMask(i), mask.data, 800 * 900);
+        memcpy(data->getMask(i), mask.data, data->w_crop[0] * data->h_crop[0]);
     }
     for (int i = 0; i < 5; ++i) {
-        FILE *f = fopen((path + "depth/" + to_string(i + 1) + "-" + to_string(current_idx) + ".depth").c_str(), "rb");
-        fread(data->getDepth(i), 800 * 900 * 4, 1, f);
+        FILE *f = fopen((path + "depth/" + to_string(i + 1) + "-" + to_string(current_idx * 5 + 96) + ".depth").c_str(), "rb");
+        fread(data->getDepth(i), data->w_crop[0] * data->h_crop[0] * 4, 1, f);
         fclose(f);
     }
 
+    ++current_idx;
     return data;
 }
