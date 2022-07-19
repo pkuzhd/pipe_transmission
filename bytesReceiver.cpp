@@ -31,7 +31,7 @@ int main(){
     if(fd < 0){
         return fd;
     }
-    const int32_t bufSize = 4000000;
+    const int32_t bufSize = 8192;
     char readBuf[bufSize];
     int i = 0;
     long total_time = 0;
