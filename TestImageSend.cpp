@@ -27,7 +27,7 @@ int main() {
     long time_total = 0;
     long long int bytes_sent = 0;
 
-    for (int j = 0; j < 100; ++j) {
+    for (int j = 0; j < 1000; ++j) {
         ImageData *data = new ImageData;
         data->n = 5;
         data->w = new int[data->n];
