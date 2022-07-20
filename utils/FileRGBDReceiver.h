@@ -10,6 +10,7 @@
 #include <queue>
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 class FileRGBDReceiver : public IRGBDReceiver {
 public:
@@ -31,6 +32,7 @@ public:
     std::queue<RGBDData *> buffer;
     std::mutex m;
     std::thread *t;
+    std::condition_variable not_full;
 
     RGBDData *_getData();
 };

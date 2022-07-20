@@ -13,14 +13,19 @@ using namespace std;
 
 void read_thread(FileRGBDReceiver *receiver) {
     while (true) {
-        int size = 0;
         RGBDData *data = receiver->_getData();
-        receiver->m.lock();
-        receiver->buffer.push(data);
-        size = receiver->buffer.size();
-        receiver->m.unlock();
-        if (size > 400) {
-            this_thread::sleep_for(chrono::milliseconds(50));
+        int size = 0;
+        {
+            unique_lock<mutex> lock(receiver->m);
+            receiver->buffer.push(data);
+            size = receiver->buffer.size();
+            while (size > 100) {
+//                cout << "sleep" << endl;
+                receiver->not_full.wait(lock);
+//                cout << "end sleep" << endl;
+                size = receiver->buffer.size();
+//                cout << size << endl;
+            }
         }
     }
 }
@@ -47,16 +52,15 @@ RGBDData *FileRGBDReceiver::getData() {
     RGBDData *data = nullptr;
     int size = 0;
     while (true) {
-        m.lock();
+        unique_lock<mutex> lock(m);
         size = buffer.size();
         if (size > 0) {
             data = buffer.front();
             buffer.pop();
-            m.unlock();
+            not_full.notify_one();
             break;
         }
-        m.unlock();
-        this_thread::sleep_for(chrono::milliseconds(10));
+//        cout << "empty" << endl;
     }
     return data;
 }
