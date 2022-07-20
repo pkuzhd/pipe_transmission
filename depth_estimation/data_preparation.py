@@ -64,7 +64,6 @@ def write_cam_dtu(file, cam):
 
     f.close()
 
-
 def get_ori_cam_paras(num_view, paths, num_virtual_plane = 128, interval_scale = 1.6):
     # get images and cams' paras
     cams = []
@@ -77,25 +76,34 @@ def get_ori_cam_paras(num_view, paths, num_virtual_plane = 128, interval_scale =
 
     return cams
     
-
 def adjust_cam_para(cams, crops):
     num_view = len(cams)
     ad_cams = cams.copy()
     for i in range(num_view):
-        cams[i][1][0][2] -= crops[i][2]
-        cams[i][1][1][2] -= crops[i][3]
+        ad_cams[i][1][0][2] -= crops[i][2]
+        ad_cams[i][1][1][2] -= crops[i][3]
     
-    return cams
+    return ad_cams
 
 
-def build_data_forFast(Imgs, Cams, height, width):
-    # for i in range(5):
-    #     write_cam_dtu(f"/home/wph/pipe_transmission/depth_estimation/FastMVSNet/cam_para/sf_before_build_para{i}.txt", cams[i])
+def scale_camera(cam, scale=1):
+    """ resize input in order to produce sampled depth map """
+    new_cam = np.copy(cam)
+    # focal:
+    new_cam[1][0][0] = cam[1][0][0] * scale
+    new_cam[1][1][1] = cam[1][1][1] * scale
+    # principle point:
+    new_cam[1][0][2] = cam[1][0][2] * scale
+    new_cam[1][1][2] = cam[1][1][2] * scale
+    return new_cam
+
+def build_data_forFast_sc(Imgs, Cams, alpha, device, height, width):
     imgs = Imgs.copy()
     cams = Cams.copy()
 
     h_scale = float(height) / imgs[0].shape[0]
     w_scale = float(width) / imgs[0].shape[1]
+    # print(imgs[0].shape)
     if h_scale > 1 or w_scale > 1:
         print("max_h, max_w should < W and H!")
         exit()
@@ -115,26 +123,47 @@ def build_data_forFast(Imgs, Cams, height, width):
 
     for i, image in enumerate(croped_images):
         croped_images[i] = norm_image(image)
-    # for i, image in enumerate(croped_images):
-    #     croped_images[i] = image / 255.0
 
     
-    # for i in range(5):
-    #     write_cam_dtu(f"/home/wph/pipe_transmission/depth_estimation/FastMVSNet/cam_para/sf_build_para{i}.txt", croped_cams[i])
-
     img_list = np.stack(croped_images, axis=0)
     cam_params_list = np.stack(croped_cams, axis=0)
     # print(f"! cam_params_list: {cam_params_list.shape}")
-    # cam_pos_list = np.stack(camspos, axis=0)
 
     img_list = torch.tensor(img_list).permute(0, 3, 1, 2).float()
-    img_list = (img_list*255).clip(0, 255)
     cam_params_list = torch.tensor(cam_params_list).float()
 
-    img_list = img_list.unsqueeze(0)
-    cam_params_list = cam_params_list.unsqueeze(0)
+    img_list = img_list.unsqueeze(0).to(device)
+    cam_params_list = cam_params_list.unsqueeze(0).to(device)
 
     # print(f"! build img_list shape {img_list.shape}")
     # print(f"! build cam_params_list shape {cam_params_list.shape}")
 
     return img_list, cam_params_list
+
+def build_data_forFast(Imgs, Cams, alpha, device):
+
+    imgs = Imgs.copy()
+    cams = Cams.copy()
+
+    # for i, image in enumerate(imgs):
+    #     imgs[i] = norm_image(image)
+    for i, image in enumerate(imgs):
+        imgs[i] = image / 255.0
+
+    img_list = np.stack(imgs, axis=0)
+    cam_params_list = np.stack(cams, axis=0)
+    # print(f"! cam_params_list: {cam_params_list.shape}")
+    # cam_pos_list = np.stack(camspos, axis=0)
+
+    img_list = torch.tensor(img_list).permute(0, 3, 1, 2).float()
+    cam_params_list = torch.tensor(cam_params_list).float()
+
+    img_tensor = img_list.unsqueeze(0).to(device)
+    cam_params_tensor = cam_params_list.unsqueeze(0).to(device)
+
+    # img_tensor = img_tensor * alpha
+
+    # print(f"! build img_list shape {img_list.shape}")
+    # print(f"! build cam_params_list shape {cam_params_list.shape}")
+
+    return img_tensor, cam_params_tensor

@@ -1,3 +1,4 @@
+from email.mime import base
 import os
 import sys
 from matplotlib import image
@@ -6,24 +7,26 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
+import time
 
 sys.path.insert(0, os.path.dirname(__file__) + '/..')
 # print(f"! {os.path.dirname(__file__)}")
 sys.path.insert(0, '/home/wph/pipe_transmission/depth_estimation/fastmvsnet/..')
 
-from cv2 import INTER_LINEAR
 from torchvision.transforms.functional import to_tensor
 from fastmvsnet.model_sf import FastMVSNet_singleframe
 
 from utils.ImageReceiver import ImageData, ImageReceiver
 from utils.RGBDSender import RGBDData, RGBDSender
-from torch import unsqueeze
 from fastmvsnet.config import load_cfg_from_file
-from data_preparation import build_data_forFast, get_ori_cam_paras
+from data_preparation import build_data_forFast, build_data_forFast_sc, get_ori_cam_paras, adjust_cam_para, write_cam_dtu, scale_camera
+from fastmvsnet.utils.preprocess import  crop_dtu_input, scale_dtu_input
 
 
-# 根据前后景得到最大聚集所在的矩形(w,h)可被4整除
+# 根据前后景得到最大聚集所在的矩形(w,h)
 def get_fore_rect(back, src):
+    maxh = back.shape[0]
+    maxw = back.shape[1]
     fgbg = cv2.createBackgroundSubtractorMOG2(history=1, varThreshold=100, detectShadows=False)
     
     # get the front mask
@@ -52,129 +55,231 @@ def get_fore_rect(back, src):
     box = cv2.boxPoints(max_rect)
     max_x, min_x = np.max(box[:,0]), np.min(box[:,0])
     max_y, min_y = np.max(box[:,1]), np.min(box[:,1])
-    box = np.array([[min_x, max_y],[min_x, min_y],[max_x, min_y],[max_x, max_y]])
-    box = np.int0(box)
 
-    # min_row = int(box[1][1]/4) *4
-    # max_row = int((box[0][1]+3)/4) *4
-    # min_col = int(box[0][0]/4) *4
-    # max_col = int((box[2][0]+3)/4) *4
-
-    max_x, max_y = int((max_x+3)/4) *4, int((max_y+3)/4) *4
-    min_x, min_y = int(min_x/4) *4, int(min_y/4) *4
+    max_x, max_y = int(min(maxw, max_x)), int(min(maxh, max_y))
+    min_x, min_y = int(max(min_x, 0)), int(max(min_y, 0))
 
     w = max_x - min_x
     h = max_y - min_y
 
     return (w, h, min_x, min_y)
 
+def get_crops(imgs, bgrs, base_size):
+    img_h, img_w,_ = imgs[0].shape
+    num_view = len(imgs)
+    rects = []
+    crops = []
+    maxw = 0
+    maxh = 0
+
+    for i in range(num_view):
+        w, h, x, y = get_fore_rect(imgs[i], bgrs[i])
+        if w > maxw: maxw = w
+        if h > maxh: maxh = h
+        rects.append((w, h, x, y))
+    
+    # fit base_images
+    maxw = int(int((maxw + base_size - 1)/base_size) * base_size)
+    maxh = int(int((maxh + base_size - 1)/base_size) * base_size)
+    if maxw > img_w: maxw = maxw - base_size
+    if maxh > img_h: maxh = maxh - base_size
+
+    # get new crops base point
+    for i in range(num_view):
+        w, h, x, y = rects[i]
+        newx, newy = x+w-maxw, y+h-maxh
+        if newx < 0: newx = 0
+        if newy < 0: newy = 0
+        crops.append((maxw, maxh, newx, newy))
+
+    return crops, maxw, maxh
+
+def crop_images(imgs, crops):
+    num = len(imgs)
+    cropped_imgs = []
+    
+    for i in range(num):
+        w, h, x, y = crops[i]
+        cropped_img = imgs[i][y:y+h, x:x+w, :]
+        cropped_imgs.append(cropped_img)
+    
+    return cropped_imgs
+
+
+def get_masks(pha):
+    masks = []
+    pha_np = pha.to(torch.device('cpu')).numpy()
+
+    for i in range(5):
+        mask_np = np.transpose(pha_np[i], (1,2,0))
+        mask = np.uint8(mask_np*255)
+        masks.append(mask)
+
+    return masks
+
+def get_depths(preds, alpha):
+    depths = []
+    for key in preds.keys():
+        # print(f"! get key of {key}")
+        if "coarse_depth_map" not in key:
+            continue
+        # print(f"! preds: {preds[key].shape}")
+        # print("alpha: ", alpha.shape)
+        # print("preds:", preds[key][0,0].shape)
+        tmp = preds[key][0,0].to(torch.device('cpu')).detach().numpy()
+        # tmp = 1.0 / tmp
+        maxn = np.max(tmp)#1.6###1.6
+        minn = np.min(tmp)#0.7###1.0
+        # maxn = 1.6
+        # minn = 0.6
+        # print('max:{},min:{}'.format(maxn, minn))
+        tmp = (tmp - minn) / (maxn - minn) * 255.0
+        # tmp = tmp.astype('uint8')
+        # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
+        
+        tmp_ori = cv2.resize(tmp,dsize=None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
+        # tmp_ori = tmp_ori * (alpha[i][:,:,0]/255)
+        
+        depths.append(tmp_ori)
+
+    
+    return depths
+
 class DepthEstimation_forRGBD():
     # 要求输入img为RGB
 
-    def __init__(self, view_num, backgrounds, cam_paths):
+    def __init__(self, view_num, backgrounds, cams, device):
         # paras to read in
         # initialize backgrounds
         self.num_view = view_num
+        self.device = device
         self.bgrs = backgrounds.copy()
+        self.cams = cams.copy()
+        self.matting_model_path = '/home/wph/BackgroundMatting/TorchScript/torchscript_resnet50_fp32.pth'
+        self.fmn_cfg_path = '/home/wph/pipe_transmission/depth_estimation/single_frame.yaml'
+        self.fmn_model_path = '/home/wph/FastMVSNet/outputs/pretrained.pth'
 
         # Crop: no model
-
+        
         # Matting: load model
-        self.Matting_model = torch.jit.load('/home/wph/BackgroundMatting/TorchScript/torchscript_resnet50_fp32.pth').eval().cuda()
-
-        # Depth estimation: 
-        # config folder for cams and 
-        self.cfg = load_cfg_from_file('/home/wph/pipe_transmission/depth_estimation/single_frame.yaml')
-        self.cfg.freeze()
-
-        # get cameras' paras
-        self.cams = get_ori_cam_paras(5, cam_paths, num_virtual_plane=self.cfg.DATA.TEST.NUM_VIRTUAL_PLANE, interval_scale=self.cfg.DATA.TEST.INTER_SCALE)
+        self.Matting_model = torch.jit.load(self.matting_model_path).eval().to(device)
 
         # build model
         self.FastMVSNet_model = FastMVSNet_singleframe()
-        self.FastMVSNet_model = nn.DataParallel(self.FastMVSNet_model).cuda()
-        stat_dict = torch.load('/home/wph/FastMVSNet/outputs/pretrained.pth', map_location=torch.device("cpu"))
+        self.FastMVSNet_model = nn.DataParallel(self.FastMVSNet_model).to(self.device)
+        # self.FastMVSNet_model = self.FastMVSNet_model.module
+        # # self.FastMVSNet_model = self.FastMVSNet_model.eval().to(device)
+        stat_dict = torch.load(self.fmn_model_path, map_location=torch.device("cpu"))
         self.FastMVSNet_model.load_state_dict(stat_dict.pop("model"), strict = False)
-    
-    def get_masks(self, pha):
-        masks = []
-        pha_np = pha.to(torch.device('cpu')).numpy()
-
-        for i in range(5):
-            mask_np = np.transpose(pha_np[i], (1,2,0))
-            mask = np.uint8(mask_np*255)
-            masks.append(mask)
-
-        return masks
-
-    def get_depths(self, preds):
-        depths = []
-        for key in preds.keys():
-            # print(f"! get key of {key}")
-            if "coarse_depth_map" not in key:
-                continue
-            # print(f"! preds: {preds[key].shape}")
-            tmp = preds[key][0,0].to(torch.device('cpu')).detach().numpy()
-            # tmp = 1.0 / tmp
-            maxn = np.max(tmp)#1.6###1.6
-            minn = np.min(tmp)#0.7###1.0
-            # print('max:{},min:{}'.format(maxn, minn))
-            tmp = (tmp - minn) / (maxn - minn) * 255.0
-            # tmp = tmp.astype('uint8')
-            # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
-            # cv2.imwrite(f"/home/wph/pipe_transmission/depth_estimation/test_results/preds_{key}_{tmp.shape}_of_{tmp.dtype}.jpg", tmp)
             
-            tmp_ori = cv2.resize(tmp,dsize=None, fx=4, fy=4, interpolation=INTER_LINEAR)
-            depths.append(tmp_ori)
-            # cv2.imwrite(f"/home/wph/pipe_transmission/depth_estimation/test_results/depths/{key}_0715.jpg", tmp_ori)
-        
-        return depths
 
-    def getRGBD(self, imgdata):
+
+    def getRGBD(self, imgdata, crop=False):
+        times = 1
+        r_scale = 0.8
         self.imgs = imgdata.imgs.copy()
+        ref_crop = [(720, 880, 850, 189), (720, 880, 780, 111), (720, 880, 680, 198), (720, 880, 550, 200), (720, 880, 491, 159)]
+        # ref_crop = [(768, 896, 850, 170), (768, 896, 780, 111), (768, 896, 680, 170), (768, 896, 550, 180), (768, 896, 491, 159)]
+
 
         # Crop to get crops(w,h,x,y), cropped_imgs
-        self.cropped_imgs = []
-        self.cropped_bgrs = []
-        self.crops = []
-        for i in range(self.num_view):
-            cur_img = self.imgs[i]
-            cur_bgr = self.bgrs[i]
-            w, h, x, y = get_fore_rect(cur_bgr, cur_img)    # (w, h, x, y)
-            
-            self.crops.append((w, h, x, y))
-            cropped_img = cur_img[y:y+h, x:x+w, :]
-            # print(cropped_img.shape)
-            self.cropped_imgs.append(cropped_img)
-            cropped_bgr = cur_bgr[y:y+h, x:x+w, :]
-            self.cropped_bgrs.append(cropped_bgr)
-            # print(cropped_bgr.shape)
+        # crop_st = time.time()
+        if crop:
+            # self.crops, maxw, maxh = get_crops(self.imgs, self.bgrs, 64/r_scale)
+            # et = time.time()
+            # print(f"crop time: {et - crop_st}s")
+            self.crops = ref_crop
+            self.cropped_imgs = crop_images(self.imgs, self.crops)
+            self.cropped_bgrs = crop_images(self.bgrs, self.crops)
+            self.cropped_cams = adjust_cam_para(self.cams, self.crops)
+        else:
+            self.crops = []
+            self.cropped_imgs = self.imgs
+            self.cropped_bgrs = self.bgrs
+            self.cropped_cams = self.cams
+        
+        # crop_et = time.time()
+
+        # resize to r_scale for FastMVSNet/Matting
+        self.cropped_imgs= [cv2.resize(self.cropped_imgs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
+        self.cropped_bgrs = [cv2.resize(self.cropped_bgrs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
+        self.cropped_cams = [scale_camera(self.cropped_cams[i], scale=r_scale) for i in range(5)]
+
+        # resize_et = time.time()
 
         # to tensor to device: cropped_bgrs cropped_imgs
-        # use original pics for test
         # matting tensor
-        # print(self.cropped_imgs[0].shape)
-        # print(self.cropped_bgrs[0].shape)
-        imgs_m = np.stack(self.imgs, axis=0)
-        bgrs_m = np.stack(self.bgrs, axis=0)
-        imgs_tensor_m = torch.tensor(imgs_m).permute(0,3,1,2).float()
-        imgs_tensor_m = (imgs_tensor_m/255).cuda()
-        bgrs_tensor_m = torch.tensor(bgrs_m).permute(0,3,1,2).float()
-        bgrs_tensor_m = (bgrs_tensor_m/255).cuda()
+        imgs = np.stack(self.cropped_imgs, axis=0)
+        bgrs = np.stack(self.cropped_bgrs, axis=0)
+        imgs_tensor = torch.tensor(imgs).permute(0,3,1,2).float().to(self.device)
+        bgrs_tensor = torch.tensor(bgrs).permute(0,3,1,2).float().to(self.device)
+        imgs_tensor_m = (imgs_tensor/255.0)
+        bgrs_tensor_m = (bgrs_tensor/255.0)
 
-        # depth estimation tensor
-        imgs_tensor, cams_tensor = build_data_forFast(self.imgs, self.cams, height=self.cfg.DATA.TEST.IMG_HEIGHT, width=self.cfg.DATA.TEST.IMG_WIDTH)
-        imgs_tensor, cams_tensor = imgs_tensor.cuda(non_blocking=True), cams_tensor.cuda(non_blocking=True)  # data_batch
+        if crop:
+            cam_params_list = np.stack(self.cropped_cams, axis=0)
+            cam_params_list = torch.tensor(cam_params_list).float().to(self.device)
+            cams_tensor = cam_params_list.unsqueeze(0)
+            imgs_tensor = imgs_tensor_m.unsqueeze(0)
+        else:
+            croped_images, croped_cams = crop_dtu_input(self.cropped_imgs, self.cropped_cams,height=self.imgs[0].shape[0]*r_scale, width=self.imgs[0].shape[1]*r_scale, base_image_size=64, depth_image=None)
+            img_list = np.stack(croped_images, axis=0)
+            cam_params_list = np.stack(croped_cams, axis=0)
+            img_list = torch.tensor(img_list).permute(0, 3, 1, 2).float()
+            cam_params_list = torch.tensor(cam_params_list).float()
+
+            imgs_tensor = img_list.unsqueeze(0).to(self.device)
+            cams_tensor = cam_params_list.unsqueeze(0).to(self.device)
+
+        # trans_et = time.time()
+
+        with torch.no_grad():
+            # for i in range(3):
+            #     alpha_masks = self.Matting_model(imgs_tensor_m, bgrs_tensor_m)[0]
+            
+            # torch.cuda.synchronize()
+            # matting_st = time.time()
+            
+            for i in range(times):
+                alpha_masks = self.Matting_model(imgs_tensor_m, bgrs_tensor_m)[0]
+
+            # torch.cuda.synchronize()
+            # mattint_et = time.time()
 
         # run model of depths and masks
         with torch.no_grad():
-            preds = self.FastMVSNet_model(imgs_tensor = imgs_tensor, cams_tensor = cams_tensor, img_scales=self.cfg.MODEL.TEST.IMG_SCALES, inter_scales=self.cfg.MODEL.TEST.INTER_SCALES, blending=None, isGN=False, isTest=True)
-        
-        alpha_masks = self.Matting_model(imgs_tensor_m, bgrs_tensor_m)[0]
+            # for i in range(3):
+            #     preds = self.FastMVSNet_model(imgs_tensor = imgs_tensor, cams_tensor = cams_tensor, img_scales=(0.25, 0.5, 1.0), inter_scales=(0.75, 0.15, 0.15), blending=None, isGN=False, isTest=True)
+
+            # torch.cuda.synchronize()
+            # depth_st = time.time()
+            for i in range(times):
+                preds = self.FastMVSNet_model(imgs_tensor = imgs_tensor, cams_tensor = cams_tensor, img_scales=(0.25, 0.5, 1.0), inter_scales=(0.75, 0.15, 0.15), blending=None, isGN=False, isTest=True)
+            # torch.cuda.synchronize()
+            # depth_et = time.time()
         
         # depths/masks: tensor->numpy
-        self.depths = self.get_depths(preds)
-        self.masks = self.get_masks(alpha_masks)
+        self.masks = get_masks(alpha_masks)
+        self.depths = get_depths(preds, self.masks)
+
+        # get_back_et = time.time()
+
+        self.masks= [cv2.resize(self.masks[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
+        self.depths = [cv2.resize(self.depths[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
+
+        # et = time.time()
+
+        # print(f"crop time: {crop_et - crop_st}s")
+        # print(f"resize time: {resize_et - crop_et}s")
+        # print(f"trans time: {trans_et - resize_et}s")
+        # print(f"matting time: {(mattint_et - matting_st)/times}s")
+        # print(f"depth_estimation time: {(depth_et - depth_st)/times}s")
+        # print(f"trans and resize: {get_back_et - depth_et}s")
+        # print(f"trans and resize: {et - get_back_et}s")
+
+
+        # 一致性校验
+        # 扩散
 
         return {
             "num_view": self.num_view,
