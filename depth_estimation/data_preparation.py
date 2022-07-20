@@ -1,3 +1,4 @@
+from cv2 import CamShift
 import torch
 import numpy as np
 
@@ -77,25 +78,23 @@ def get_ori_cam_paras(num_view, paths, num_virtual_plane = 128, interval_scale =
     return cams
     
 def adjust_cam_para(cams, crops):
-    ad_cams = cams.copy()
     num_view = len(cams)
     for i in range(num_view):
-        ad_cams[i][1][0][2] -= crops[i][2]
-        ad_cams[i][1][1][2] -= crops[i][3]
+        cams[i][1][0][2] -= crops[i][2]
+        cams[i][1][1][2] -= crops[i][3]
     
-    return ad_cams
+    return cams
 
 
 def scale_camera(cam, scale=1):
     """ resize input in order to produce sampled depth map """
-    new_cam = cam.copy()
     # focal:
-    new_cam[1][0][0] = cam[1][0][0] * scale
-    new_cam[1][1][1] = cam[1][1][1] * scale
+    cam[1][0][0] = cam[1][0][0] * scale
+    cam[1][1][1] = cam[1][1][1] * scale
     # principle point:
-    new_cam[1][0][2] = cam[1][0][2] * scale
-    new_cam[1][1][2] = cam[1][1][2] * scale
-    return new_cam
+    cam[1][0][2] = cam[1][0][2] * scale
+    cam[1][1][2] = cam[1][1][2] * scale
+    return cam
 
 def build_data_forFast_sc(Imgs, Cams, alpha, device, height, width):
     imgs = Imgs.copy()

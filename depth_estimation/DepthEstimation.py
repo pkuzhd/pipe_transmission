@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
 import time
+from torchvision import transforms 
 
 sys.path.insert(0, os.path.dirname(__file__) + '/..')
 # print(f"! {os.path.dirname(__file__)}")
@@ -148,31 +149,26 @@ def get_depths(preds, alpha):
 class DepthEstimation_forRGBD():
     # 要求输入img为RGB
 
-    def __init__(self, view_num, backgrounds, cams, device):
+    def __init__(self, view_num, backgrounds, cams, matting_model_path, fmn_model_path, device):
         # paras to read in
         # initialize backgrounds
         self.num_view = view_num
         self.device = device
         self.bgrs = backgrounds.copy()
         self.cams = cams.copy()
-        self.matting_model_path = '/home/wph/BackgroundMatting/TorchScript/torchscript_resnet50_fp32.pth'
-        self.fmn_cfg_path = '/home/wph/pipe_transmission/depth_estimation/single_frame.yaml'
-        self.fmn_model_path = '/home/wph/FastMVSNet/outputs/pretrained.pth'
 
         # Crop: no model
         
         # Matting: load model
-        self.Matting_model = torch.jit.load(self.matting_model_path).eval().to(device)
+        self.Matting_model = torch.jit.load(matting_model_path).eval().to(device)
 
         # build model
         self.FastMVSNet_model = FastMVSNet_singleframe()
         self.FastMVSNet_model = nn.DataParallel(self.FastMVSNet_model).to(self.device)
         # self.FastMVSNet_model = self.FastMVSNet_model.module
         # # self.FastMVSNet_model = self.FastMVSNet_model.eval().to(device)
-        stat_dict = torch.load(self.fmn_model_path, map_location=torch.device("cpu"))
+        stat_dict = torch.load(fmn_model_path, map_location=torch.device("cpu"))
         self.FastMVSNet_model.load_state_dict(stat_dict.pop("model"), strict = False)
-
-            
 
 
     def getRGBD(self, imgdata, crop=False):
@@ -201,8 +197,8 @@ class DepthEstimation_forRGBD():
         # crop_et = time.time()
 
         # resize to r_scale for FastMVSNet/Matting
-        cropped_imgs= [cv2.resize(cropped_imgs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
-        cropped_bgrs = [cv2.resize(cropped_bgrs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
+        # cropped_imgs= [cv2.resize(cropped_imgs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
+        # cropped_bgrs = [cv2.resize(cropped_bgrs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
         cropped_cams = [scale_camera(cropped_cams[i], scale=r_scale) for i in range(5)]
 
         # resize_et = time.time()
@@ -220,7 +216,11 @@ class DepthEstimation_forRGBD():
             cam_params_list = np.stack(cropped_cams, axis=0)
             cam_params_list = torch.tensor(cam_params_list).float().to(self.device)
             cams_tensor = cam_params_list.unsqueeze(0)
-            imgs_tensor = imgs_tensor_m.unsqueeze(0)
+            num, channal, h, w = imgs_tensor.shape
+            resize = transforms.Resize([int(h*r_scale), int(w*r_scale)])
+            imgs_tensor = resize(imgs_tensor_m)
+            imgs_tensor = imgs_tensor.unsqueeze(0)
+            
         else:
             croped_images, croped_cams = crop_dtu_input(cropped_imgs, cropped_cams,height=imgs[0].shape[0]*r_scale, width=imgs[0].shape[1]*r_scale, base_image_size=64, depth_image=None)
             img_list = np.stack(croped_images, axis=0)
@@ -264,18 +264,18 @@ class DepthEstimation_forRGBD():
 
         # get_back_et = time.time()
 
-        masks= [cv2.resize(masks[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
+        # masks= [cv2.resize(masks[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
         depths = [cv2.resize(depths[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
 
         # et = time.time()
 
         # print(f"crop time: {crop_et - crop_st}s")
-        # print(f"resize time: {resize_et - crop_et}s")
-        # print(f"trans time: {trans_et - resize_et}s")
+        # print(f"resize cam time: {resize_et - crop_et}s")
+        # print(f"trans(resize) time: {trans_et - resize_et}s")
         # print(f"matting time: {(mattint_et - matting_st)/times}s")
         # print(f"depth_estimation time: {(depth_et - depth_st)/times}s")
-        # print(f"trans and resize: {get_back_et - depth_et}s")
-        # print(f"trans and resize: {et - get_back_et}s")
+        # print(f"trans: {get_back_et - depth_et}s")
+        # print(f"resize depth: {et - get_back_et}s")
 
 
         # 一致性校验
