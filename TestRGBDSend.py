@@ -25,16 +25,19 @@ data = RGBDData(5, imgs, depths, masks, [(w, h, 0, 0) for j in range(5)])
 
 time_total = 0
 bytes_total = 0
-f = open("time_cost/1000_data_cat_1.txt", "w")
+f = open("time_cost/1000_data_1.txt", "w")
 
-for i in range(160):
-
-    bytes, time_cost = sender.sendData(data)
+for i in range(1000):
+    start_time = datetime.datetime.now()
+    bytes = sender.sendData(data)
+    end_time = datetime.datetime.now()
+    time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
     bytes_total += bytes
     time_total += time_cost
 
     print(f"{i} " + f"{time_cost} " + "ms " + "total: " + f"{time_total} " + "ms")
     f.write(f"{i} " + f"{time_cost} " + "ms " + "total: " + f"{time_total} " + "ms\n")
+    print(f"{bytes_total / 1000 / time_total}" + " MBps\n")
 
 print(bytes_total / 1000000, "MB")
 f.write(f"{bytes_total / 1000000}" + " " + "MB\n")
