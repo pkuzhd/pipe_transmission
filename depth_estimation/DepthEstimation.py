@@ -171,58 +171,58 @@ class DepthEstimation_forRGBD():
         # # self.FastMVSNet_model = self.FastMVSNet_model.eval().to(device)
         stat_dict = torch.load(self.fmn_model_path, map_location=torch.device("cpu"))
         self.FastMVSNet_model.load_state_dict(stat_dict.pop("model"), strict = False)
+
             
 
 
     def getRGBD(self, imgdata, crop=False):
         times = 1
-        r_scale = 0.8
-        self.imgs = imgdata.imgs.copy()
-        ref_crop = [(720, 880, 850, 189), (720, 880, 780, 111), (720, 880, 680, 198), (720, 880, 550, 200), (720, 880, 491, 159)]
+        r_scale = 0.5
+        ori_imgs = imgdata.imgs.copy()
+        # ref_crop = [(720, 880, 850, 189), (720, 880, 780, 111), (720, 880, 680, 198), (720, 880, 550, 200), (720, 880, 491, 159)]
         # ref_crop = [(768, 896, 850, 170), (768, 896, 780, 111), (768, 896, 680, 170), (768, 896, 550, 180), (768, 896, 491, 159)]
-
+        ref_crop = [(768, 896, 768, 173), (768, 896, 695, 95), (768, 896, 613, 182), (768, 896, 567, 184), (768, 896, 443, 143)]
+        cams = [self.cams[i].copy() for i in range(self.num_view)]
 
         # Crop to get crops(w,h,x,y), cropped_imgs
         # crop_st = time.time()
         if crop:
             # self.crops, maxw, maxh = get_crops(self.imgs, self.bgrs, 64/r_scale)
-            # et = time.time()
-            # print(f"crop time: {et - crop_st}s")
-            self.crops = ref_crop
-            self.cropped_imgs = crop_images(self.imgs, self.crops)
-            self.cropped_bgrs = crop_images(self.bgrs, self.crops)
-            self.cropped_cams = adjust_cam_para(self.cams, self.crops)
+            crops = ref_crop
+            cropped_imgs = crop_images(ori_imgs, crops)
+            cropped_bgrs = crop_images(self.bgrs, crops)
+            cropped_cams = adjust_cam_para(cams, crops)
         else:
-            self.crops = []
-            self.cropped_imgs = self.imgs
-            self.cropped_bgrs = self.bgrs
-            self.cropped_cams = self.cams
+            crops = []
+            cropped_imgs = imgs
+            cropped_bgrs = bgrs
+            cropped_cams = cams
         
         # crop_et = time.time()
 
         # resize to r_scale for FastMVSNet/Matting
-        self.cropped_imgs= [cv2.resize(self.cropped_imgs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
-        self.cropped_bgrs = [cv2.resize(self.cropped_bgrs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
-        self.cropped_cams = [scale_camera(self.cropped_cams[i], scale=r_scale) for i in range(5)]
+        cropped_imgs= [cv2.resize(cropped_imgs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
+        cropped_bgrs = [cv2.resize(cropped_bgrs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
+        cropped_cams = [scale_camera(cropped_cams[i], scale=r_scale) for i in range(5)]
 
         # resize_et = time.time()
 
         # to tensor to device: cropped_bgrs cropped_imgs
         # matting tensor
-        imgs = np.stack(self.cropped_imgs, axis=0)
-        bgrs = np.stack(self.cropped_bgrs, axis=0)
+        imgs = np.stack(cropped_imgs, axis=0)
+        bgrs = np.stack(cropped_bgrs, axis=0)
         imgs_tensor = torch.tensor(imgs).permute(0,3,1,2).float().to(self.device)
         bgrs_tensor = torch.tensor(bgrs).permute(0,3,1,2).float().to(self.device)
         imgs_tensor_m = (imgs_tensor/255.0)
         bgrs_tensor_m = (bgrs_tensor/255.0)
 
         if crop:
-            cam_params_list = np.stack(self.cropped_cams, axis=0)
+            cam_params_list = np.stack(cropped_cams, axis=0)
             cam_params_list = torch.tensor(cam_params_list).float().to(self.device)
             cams_tensor = cam_params_list.unsqueeze(0)
             imgs_tensor = imgs_tensor_m.unsqueeze(0)
         else:
-            croped_images, croped_cams = crop_dtu_input(self.cropped_imgs, self.cropped_cams,height=self.imgs[0].shape[0]*r_scale, width=self.imgs[0].shape[1]*r_scale, base_image_size=64, depth_image=None)
+            croped_images, croped_cams = crop_dtu_input(cropped_imgs, cropped_cams,height=imgs[0].shape[0]*r_scale, width=imgs[0].shape[1]*r_scale, base_image_size=64, depth_image=None)
             img_list = np.stack(croped_images, axis=0)
             cam_params_list = np.stack(croped_cams, axis=0)
             img_list = torch.tensor(img_list).permute(0, 3, 1, 2).float()
@@ -259,13 +259,13 @@ class DepthEstimation_forRGBD():
             # depth_et = time.time()
         
         # depths/masks: tensor->numpy
-        self.masks = get_masks(alpha_masks)
-        self.depths = get_depths(preds, self.masks)
+        masks = get_masks(alpha_masks)
+        depths = get_depths(preds, masks)
 
         # get_back_et = time.time()
 
-        self.masks= [cv2.resize(self.masks[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
-        self.depths = [cv2.resize(self.depths[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
+        masks= [cv2.resize(masks[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
+        depths = [cv2.resize(depths[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
 
         # et = time.time()
 
@@ -283,9 +283,9 @@ class DepthEstimation_forRGBD():
 
         return {
             "num_view": self.num_view,
-            "imgs": self.imgs,
-            "depths": self.depths, 
-            "masks": self.masks, 
-            "crops": self.crops
+            "imgs": ori_imgs,
+            "depths": depths, 
+            "masks": masks, 
+            "crops": crops
         }
         

@@ -77,8 +77,8 @@ def get_ori_cam_paras(num_view, paths, num_virtual_plane = 128, interval_scale =
     return cams
     
 def adjust_cam_para(cams, crops):
-    num_view = len(cams)
     ad_cams = cams.copy()
+    num_view = len(cams)
     for i in range(num_view):
         ad_cams[i][1][0][2] -= crops[i][2]
         ad_cams[i][1][1][2] -= crops[i][3]
@@ -88,7 +88,7 @@ def adjust_cam_para(cams, crops):
 
 def scale_camera(cam, scale=1):
     """ resize input in order to produce sampled depth map """
-    new_cam = np.copy(cam)
+    new_cam = cam.copy()
     # focal:
     new_cam[1][0][0] = cam[1][0][0] * scale
     new_cam[1][1][1] = cam[1][1][1] * scale
