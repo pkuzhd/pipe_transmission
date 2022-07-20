@@ -129,12 +129,12 @@ def get_depths(preds, alpha):
         # print("preds:", preds[key][0,0].shape)
         tmp = preds[key][0,0].to(torch.device('cpu')).detach().numpy()
         # tmp = 1.0 / tmp
-        maxn = np.max(tmp)#1.6###1.6
-        minn = np.min(tmp)#0.7###1.0
+        # maxn = np.max(tmp)#1.6###1.6
+        # minn = np.min(tmp)#0.7###1.0
         # maxn = 1.6
         # minn = 0.6
         # print('max:{},min:{}'.format(maxn, minn))
-        tmp = (tmp - minn) / (maxn - minn) * 255.0
+        # tmp = (tmp - minn) / (maxn - minn) * 255.0
         # tmp = tmp.astype('uint8')
         # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
         
