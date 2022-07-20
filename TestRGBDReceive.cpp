@@ -34,7 +34,7 @@ int main() {
     RGBDReceiver receiver;
     receiver.open("../pipe_dir/pipe2");
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 1000; ++i) {
         cout << "request data " << i << endl;
         RGBDData *data = receiver.getData();
         while (!data) {
