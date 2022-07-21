@@ -20,7 +20,9 @@ class ImageReceiver():
         self.rf = os.open(filename, os.O_RDONLY)
         print("os.open finished")
         print("pipe size", fcntl.fcntl(self.rf, 1032))
-
+        fcntl.fcntl(self.rf, 1031, 1048576)
+        print("pipe size", fcntl.fcntl(self.rf, 1032))
+        
     def close(self):
         os.close(self.rf)
 
@@ -47,27 +49,15 @@ class ImageReceiver():
             
             
             
-            while read_len + 65536 * 16 < w * h * 3:
-                buf += os.read(self.rf, 65536 * 16)
+            while read_len + 1048576 < w * h * 3:
+                buf += os.read(self.rf, 1048576)
                 read_len = np.frombuffer(buf, np.uint8).size
                 
             end_time = datetime.datetime.now()
             time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
             
-            print("65536 * 16:", time_cost)
+            print("1048576:", time_cost)
             
-            
-            start_time = datetime.datetime.now()
-            
-            while read_len + 65536 < w * h * 3:
-            #print(w * h * 3, read_len, w * h * 3 - read_len)
-                buf += os.read(self.rf, 65536)
-                read_len = np.frombuffer(buf, np.uint8).size
-                
-            end_time = datetime.datetime.now()
-            time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
-            
-            print("65536:", time_cost)
             
             start_time = datetime.datetime.now()
             
