@@ -14,7 +14,7 @@ while j < 1000:
     print(j," ",time_cost)
     time1 = time.time()
     for i in range(5):
-        cv2.imwrite("./saveData/img" + str(j)+"."+str(i+1)+".jpg",data.imgs[i])
+        cv2.imwrite("./test_dir/img" + str(j)+"."+str(i+1)+".jpg",data.imgs[i])
     print(data)
     j += 1
 
