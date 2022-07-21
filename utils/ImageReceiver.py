@@ -3,6 +3,7 @@ import os
 import numpy as np
 import fcntl
 import datetime
+import time
 
 class ImageData():
     def __init__(self, N, imgs):
@@ -37,8 +38,9 @@ class ImageReceiver():
         print("init time", time_cost)
         
         start_time = datetime.datetime.now()
-        buf = os.read(self.rf, 1)
-        
+        time1 = time.time()
+        buf = os.read(self.rf, 4)
+        print("[1 bytes]" , time.time() - time1)
         end_time = datetime.datetime.now()
         time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
         print("read 1 byte time", time_cost)
