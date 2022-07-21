@@ -27,19 +27,38 @@ class ImageReceiver():
         os.close(self.rf)
 
     def getData(self) -> ImageData:
+        
+        start_time = datetime.datetime.now()
+        
         image_data = ImageData(0, [])
+        end_time = datetime.datetime.now()
+        time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
+        
+        print("init time", time_cost)
+        
+        start_time = datetime.datetime.now()
         buf = os.read(self.rf, 1)
+        
+        end_time = datetime.datetime.now()
+        time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
+        print("read 1 byte time", time_cost)
+        
+        start_time = datetime.datetime.now()
         image_data.N = int.from_bytes(buf, byteorder='little', signed=False)
-        print(image_data.N)
-
-
+        # print(image_data.N)
+        end_time = datetime.datetime.now()
+        time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
+        print("get num time", time_cost)
+        
+        start_time = datetime.datetime.now()
+        
 
         for i in range(image_data.N):
             buf = os.read(self.rf, 4)
             w = int.from_bytes(buf, byteorder='little', signed=False)
             buf = os.read(self.rf, 4)
             h = int.from_bytes(buf, byteorder='little', signed=False)
-            print(w, h)
+            #print(w, h)
 
             buf = b''
             read_len = 0
@@ -56,7 +75,7 @@ class ImageReceiver():
             end_time = datetime.datetime.now()
             time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
             
-            print("1048576:", time_cost)
+            # print("1048576:", time_cost)
             
             
             start_time = datetime.datetime.now()
@@ -66,11 +85,15 @@ class ImageReceiver():
             end_time = datetime.datetime.now()
             time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
             
-            print("remain:", time_cost)
+            # print("remain:", time_cost)
             
             
             image_data.imgs.append(np.frombuffer(buf, np.uint8).reshape((h, w, 3)))
-
+        
+        end_time = datetime.datetime.now()
+        time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
+        print(" for time ", time_cost)
+        
         return image_data
 
     
