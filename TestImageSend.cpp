@@ -20,10 +20,10 @@ void save(string path, int idx, ImageData *data) {
 }
 
 int main() {
-    string test_path = "/home/zhd/CLionProjects/pipe_transmission/test_dir/";
+    string test_path = "../test_dir/";
 
     ImageSender sender;
-    sender.open("/home/zhd/CLionProjects/pipe_transmission/pipe_dir/pipe1");
+    sender.open("../pipe_dir/pipe1");
     long time_total = 0;
     long long int bytes_sent = 0;
 
@@ -37,7 +37,7 @@ int main() {
         for (int i = 0; i < 5; ++i) {
             data->h[i] = 2160;
             data->w[i] = 3840;
-            cv::Mat img = cv::imread("/home/zhd/CLionProjects/pipe_transmission/test_data/" + std::to_string(i + 1) + ".jpg");
+            cv::Mat img = cv::imread("../test_data/" + std::to_string(i + 1) + ".jpg");
             memcpy(data->imgs + 2160 * 3840 * 3 * i, img.data, 2160 * 3840 * 3);
         }
         save(test_path, j, data);
