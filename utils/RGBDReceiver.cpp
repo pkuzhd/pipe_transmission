@@ -73,12 +73,12 @@ RGBDData * RGBDReceiver::getData(){
 
 }
 RGBDData *RGBDReceiver::getSingleFrame() {
-    const int32_t bufSize = 81;
+    const int32_t bufSize = 1048576;
     char readBuf[bufSize];
     memset(readBuf, '\0', bufSize);
     RGBDData * rgbdData = (RGBDData*) malloc(sizeof(RGBDData));
 
-    if (read(fd, readBuf, bufSize) <= 0) {
+    if (read(fd, readBuf, 81) <= 0) {
         std::cout << "read error\n";
         free(rgbdData);
         return nullptr;
@@ -261,6 +261,7 @@ int RGBDReceiver::open(std::string filename) {
     if(fd < 0){
         return fd;
     }
+    fcntl(fd, 1031, 1048576);
     std::thread th(readdata_thread, this);
     th.detach();
     return 0;
