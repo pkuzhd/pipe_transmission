@@ -47,9 +47,10 @@ class ImageReceiver():
             
             while read_len + 65536 < w * h * 3:
             #print(w * h * 3, read_len, w * h * 3 - read_len)
-                buf += os.read(self.rf, w * h * 3 - read_len)
+                buf += os.read(self.rf, 65536)
                 read_len = np.frombuffer(buf, np.uint8).size
-
+        
+            buf += os.read(self.rf, w * h * 3 - read_len)
             image_data.imgs.append(np.frombuffer(buf, np.uint8).reshape((h, w, 3)))
 
         return image_data
