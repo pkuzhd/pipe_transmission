@@ -28,6 +28,7 @@ int main() {
     long long int bytes_sent = 0;
 
     for (int j = 0; j < 1000; ++j) {
+        std::cout << j << std::endl;
         ImageData *data = new ImageData;
         data->n = 5;
         data->w = new int[data->n];

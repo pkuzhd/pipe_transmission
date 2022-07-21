@@ -46,8 +46,8 @@ int ImageSender::sendData(ImageData *data) {
     int cur = 0;
     int cur_img = 0;
     int n = data->n;
-    memcpy(bytes, &n, 1);
-    cur += 1;
+    memcpy(bytes, &n, 4);
+    cur += 4;
     for(int i = 0 ; i < n ; i++){
         memcpy(bytes + cur, &(data->w[i]), 4);
         cur += 4;
