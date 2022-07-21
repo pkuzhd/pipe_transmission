@@ -102,7 +102,11 @@ RGBDData *FileRGBDReceiver::_getData() {
                 [&](int i) {
                     cv::Mat img = cv::imread(
                             path + "video/" + to_string(i + 1) + "-" + to_string(current_idx) + ".png");
-                    memcpy(data->getImage(i), img.data, 1920 * 1080 * 3);
+
+                    auto yRange = cv::Range(data->y[i], data->y[i] + data->h_crop[i]);
+                    auto xRange = cv::Range(data->x[i], data->x[i] + data->w_crop[i]);
+                    memcpy(data->getImage(i), img(yRange, xRange).clone().data, data->w_crop[i] * data->h_crop[i] * 3);
+//                    memcpy(data->getImage(i), img.data, 1920 * 1080 * 3);
                 }, i);
     }
 
@@ -130,10 +134,10 @@ RGBDData *FileRGBDReceiver::_getData() {
     threadPool.join();
 
     auto t2 = chrono::high_resolution_clock::now();
-    cout << current_idx << " "
-         << chrono::duration<double, milli>(t2 - t1).count() / 1000 << " "
-         << 1 / (chrono::duration<double, milli>(t2 - t1).count() / 1000)
-         << endl;
+//    cout << current_idx << " "
+//         << chrono::duration<double, milli>(t2 - t1).count() / 1000 << " "
+//         << 1 / (chrono::duration<double, milli>(t2 - t1).count() / 1000)
+//         << endl;
 
     current_idx = (current_idx + 1) % 500 + 1;
     return data;
