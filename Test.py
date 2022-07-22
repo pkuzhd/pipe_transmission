@@ -23,7 +23,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
 # initialize backgrond, paras and models
 de_rgbd = DepthEstimation_forRGBD(5, bgrs, cams, matting_model_path, fmn_model_path, device) 
 
-dirs = '/home/wph/results/1080p_videos/'+f'example/'
+dirs = './test_dir/'
 if not os.path.exists(dirs):
     os.makedirs(dirs)
 

@@ -35,22 +35,22 @@ class ImageReceiver():
         end_time = datetime.datetime.now()
         time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
         
-        print("init time", time_cost)
+        # print("init time", time_cost)
         
         start_time = datetime.datetime.now()
         time1 = time.time()
         buf = os.read(self.rf, 4)
-        print("[1 bytes]" , time.time() - time1)
+        # print("[1 bytes]" , time.time() - time1)
         end_time = datetime.datetime.now()
         time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
-        print("read 1 byte time", time_cost)
+        # print("read 1 byte time", time_cost)
         
         start_time = datetime.datetime.now()
         image_data.N = int.from_bytes(buf, byteorder='little', signed=False)
         # print(image_data.N)
         end_time = datetime.datetime.now()
         time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
-        print("get num time", time_cost)
+        # print("get num time", time_cost)
         
         start_time = datetime.datetime.now()
         
@@ -94,7 +94,7 @@ class ImageReceiver():
         
         end_time = datetime.datetime.now()
         time_cost = ((end_time - start_time).seconds * 1000 + (end_time - start_time).microseconds / 1000)
-        print(" for time ", time_cost)
+        # print(" for time ", time_cost)
         
         return image_data
 

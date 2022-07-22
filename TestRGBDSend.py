@@ -25,7 +25,7 @@ data = RGBDData(5, imgs, depths, masks, [(w, h, 0, 0) for j in range(5)])
 
 time_total = 0
 bytes_total = 0
-f = open("time_cost/1000_data_1.txt", "w")
+f = open("./test_dir/1000_data_1.txt", "w")
 
 for i in range(1000):
     start_time = datetime.datetime.now()
