@@ -52,7 +52,13 @@ for j in range(test_num):
     )
     t3 = time.time()
     print(j, rgbd_data_2.crops)
-    sender.sendData(rgbd_data_2)
+    bytes = sender.sendData(rgbd_data_2)
+
+    if(bytes == -1):
+        print("pipe has been closed.")
+        sender.close()
+        break
+
     t4 = time.time()
     print(
         f"get time: {t2 - t1:.3f}, depth estimation time: {t3 - t2:.3f}, send time: {t4 - t3}, total time: {t4 - t1:.3f}")

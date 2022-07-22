@@ -41,7 +41,7 @@ int main() {
             data = receiver.getData();
         }
         cout << "get data " << i << endl;
-//        save(test_path, i, data);
+        //save(test_path, i, data);
         delete[] data->imgs;
         delete[] data->depths;
         delete[] data->masks;

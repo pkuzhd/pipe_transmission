@@ -82,12 +82,12 @@ RGBDData *RGBDReceiver::getSingleFrame() {
     RGBDData *rgbdData = (RGBDData *) malloc(sizeof(RGBDData));
     int tmp;
 
-    if ((tmp = read(fd, readBuf, 81)) <= 0) {
+    if ((tmp = read(fd, readBuf, 121)) <= 0) {
         std::cout << "read error\n";
         free(rgbdData);
         return nullptr;
     } else {
-        std::cout << "81 " << tmp << std::endl;
+        std::cout << "121 " << tmp << std::endl;
         int cur = 0;
 
         uint8_t N;
@@ -110,20 +110,32 @@ RGBDData *RGBDReceiver::getSingleFrame() {
 
 
         for (int i = 0; i < rgbdData->n; i++) {
-            uint32_t w;
-            memcpy(&w, readBuf + cur, sizeof(unsigned int));
-
-            cur += sizeof(unsigned int);
-
             uint32_t h;
             memcpy(&h, readBuf + cur, sizeof(unsigned int));
 
             cur += sizeof(unsigned int);
 
+            uint32_t w;
+            memcpy(&w, readBuf + cur, sizeof(unsigned int));
+
+            cur += sizeof(unsigned int);
+
+            uint32_t w_crop;
+            memcpy(&w_crop, readBuf + cur, sizeof(unsigned int));
+
+            cur += sizeof(unsigned int);
+
+            uint32_t h_crop;
+            memcpy(&h_crop, readBuf + cur, sizeof(unsigned int));
+
+            cur += sizeof(unsigned int);
+
+
             uint32_t x;
             memcpy(&x, readBuf + cur, sizeof(unsigned int));
 
             cur += sizeof(unsigned int);
+
 
             uint32_t y;
             memcpy(&y, readBuf + cur, sizeof(unsigned int));
@@ -134,11 +146,15 @@ RGBDData *RGBDReceiver::getSingleFrame() {
             rgbdData->h[i] = (int) h;
             rgbdData->x[i] = (int) x;
             rgbdData->y[i] = (int) y;
-            rgbdData->w_crop[i] = (int) w;
-            rgbdData->h_crop[i] = (int) h;
+            rgbdData->w_crop[i] = (int) w_crop;
+            rgbdData->h_crop[i] = (int) h_crop;
 
+            std::cout << "now w[i] is: " << rgbdData->w[i] << std::endl;
+            std::cout << "now h[i] is: " << rgbdData->h[i] << std::endl;
+            std::cout << "now x[i] is: " << rgbdData->x[i] << std::endl;
             std::cout << "now y[i] is: " << rgbdData->y[i] << std::endl;
-
+            std::cout << "now w_crop[i] is: " << rgbdData->w_crop[i] << std::endl;
+            std::cout << "now h_crop[i] is: " << rgbdData->h_crop[i] << std::endl;
 
         }
 

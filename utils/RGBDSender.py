@@ -31,13 +31,17 @@ class RGBDSender():
         #send N
         msg = data.N.to_bytes(1, "little")
 
-        # send crops
+        # send h, w, w_crop, h_crop, x, y
         for i in range(data.N):
+            msg += data.imgs[i].shape[0].to_bytes(4, "little") # h
+            msg += data.imgs[i].shape[1].to_bytes(4, "little") # w
             for j in range(4):
-                msg += data.crops[i][j].to_bytes(4, "little")
-        #print(msg)
+                msg += data.crops[i][j].to_bytes(4, "little")  # w_crop, h_crop, x, y
 
-        len_send = os.write(self.wf, msg)
+        try:
+            len_send = os.write(self.wf, msg)
+        except BrokenPipeError:
+            return -1
 
         # send imgs
         for i in range(data.N):
