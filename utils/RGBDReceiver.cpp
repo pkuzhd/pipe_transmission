@@ -272,3 +272,11 @@ bool RGBDReceiver::isFileExists_stat(std::string &name) {
     struct stat buffer;
     return (stat(name.c_str(), &buffer) == 0);
 }
+
+int RGBDReceiver::getBufferSize() {
+    int size = 0;
+    m.lock();
+    size = queue.size();
+    m.unlock();
+    return size;
+}

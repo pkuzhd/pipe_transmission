@@ -23,12 +23,13 @@ public:
     RGBDReceiver();
     ~RGBDReceiver();
     void addData(RGBDData *data);
-    int open(std::string filename);
-    int close();
+    int open(std::string filename) override;
+    int close() override;
     bool isFileExists_stat(std::string& name);
 
     RGBDData *getSingleFrame();
-    RGBDData *getData();
+    RGBDData *getData() override;
+    int getBufferSize() override;
 };
 
 
