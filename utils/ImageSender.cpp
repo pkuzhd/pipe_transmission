@@ -19,10 +19,10 @@ ImageSender::~ImageSender() {
 }
 
 int ImageSender::open(std::string filename) {
-    if(!isFileExists_stat(filename)){
+    if (!isFileExists_stat(filename)) {
         std::cout << filename << std::endl;
         int32_t ret = mkfifo(filename.c_str(), S_IFIFO | 0666);
-        if (ret == -1){
+        if (ret == -1) {
             std::cout << errno << std::endl;
             std::cout << "Make fifo error\n";
             return -1;
@@ -30,7 +30,7 @@ int ImageSender::open(std::string filename) {
     }
 
     fd = ::open(filename.c_str(), O_WRONLY);
-    if(fd < 0){
+    if (fd < 0) {
         return fd;
     }
     return 0;
@@ -42,13 +42,13 @@ int ImageSender::close() {
 }
 
 int ImageSender::sendData(ImageData *data) {
-    char *bytes = (char*) malloc(BUFSIZE);
+    char *bytes = (char *) malloc(BUFSIZE);
     int cur = 0;
     int cur_img = 0;
     int n = data->n;
     memcpy(bytes, &n, 4);
     cur += 4;
-    for(int i = 0 ; i < n ; i++){
+    for (int i = 0; i < n; i++) {
         memcpy(bytes + cur, &(data->w[i]), 4);
         cur += 4;
         memcpy(bytes + cur, &(data->h[i]), 4);
@@ -65,10 +65,10 @@ int ImageSender::sendData(ImageData *data) {
     free(bytes);
     std::cout << "total bytes sent is: " << len << std::endl;
     return len;
-    
+
 }
 
-bool ImageSender::isFileExists_stat(std::string& name) {
+bool ImageSender::isFileExists_stat(std::string &name) {
     struct stat buffer;
     return (stat(name.c_str(), &buffer) == 0);
 }

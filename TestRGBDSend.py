@@ -45,7 +45,7 @@ print(time_total / 1000, "s")
 f.write(f"{time_total / 1000}" + " s\n")
 print(bytes_total / 1000 / time_total, "MBps")
 f.write(f"{bytes_total / 1000 / time_total}" + " MBps\n")
-print(f"{bytes_total / 1000 / time_total:.3f}",f"({time_total / 1000:.2f})")
+print(f"{bytes_total / 1000 / time_total:.3f}", f"({time_total / 1000:.2f})")
 f.close()
 input()
 

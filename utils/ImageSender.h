@@ -31,7 +31,7 @@ public:
 
     int sendData(ImageData *data);
 
-    bool isFileExists_stat(std::string& name);
+    bool isFileExists_stat(std::string &name);
 };
 
 

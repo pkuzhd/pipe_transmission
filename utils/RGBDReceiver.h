@@ -20,15 +20,23 @@ public:
     int32_t fd;
     std::queue<RGBDData *> queue;
     std::mutex m;
+
     RGBDReceiver();
+
     ~RGBDReceiver();
+
     void addData(RGBDData *data);
+
     int open(std::string filename) override;
+
     int close() override;
-    bool isFileExists_stat(std::string& name);
+
+    bool isFileExists_stat(std::string &name);
 
     RGBDData *getSingleFrame();
+
     RGBDData *getData() override;
+
     int getBufferSize() override;
 };
 

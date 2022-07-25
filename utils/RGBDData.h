@@ -27,5 +27,4 @@ public:
 };
 
 
-
 #endif //PIPE_TRANSMISSION_RGBDDATA_H

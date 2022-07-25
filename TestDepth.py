@@ -54,7 +54,7 @@ for j in range(test_num):
     print(j, rgbd_data_2.crops)
     bytes = sender.sendData(rgbd_data_2)
 
-    if(bytes == -1):
+    if (bytes == -1):
         print("pipe has been closed.")
         sender.close()
         break

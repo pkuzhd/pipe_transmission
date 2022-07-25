@@ -9,10 +9,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-void readdata_thread(RGBDReceiver * R){
-    while(1){
-        RGBDData * rgbdData = R->getSingleFrame();
-        while(!rgbdData){
+void readdata_thread(RGBDReceiver *R) {
+    while (1) {
+        RGBDData *rgbdData = R->getSingleFrame();
+        while (!rgbdData) {
             rgbdData = R->getSingleFrame();
         }
         R->addData(rgbdData);
