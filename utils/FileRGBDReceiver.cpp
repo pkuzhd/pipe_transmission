@@ -139,7 +139,7 @@ RGBDData *FileRGBDReceiver::_getData() {
 //         << 1 / (chrono::duration<double, milli>(t2 - t1).count() / 1000)
 //         << endl;
 
-    current_idx = (current_idx + 1) % 500 + 1;
+    current_idx = (current_idx + 1) % 90 + 1;
     return data;
 }
 
