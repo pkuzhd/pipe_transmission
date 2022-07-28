@@ -11,14 +11,6 @@
 
 using namespace std;
 
-void save(string path, int idx, ImageData *data) {
-    for (int i = 0; i < data->n; ++i) {
-        cv::Mat img(data->h[i], data->w[i], CV_8UC3);
-        memcpy(img.data, data->imgs + 2160 * 3840 * 3 * i, data->w[i] * data->h[i] * 3);
-        cv::imwrite(path + to_string(idx + 1) + "-" + to_string(i + 1) + ".gt.jpg", img);
-    }
-}
-
 int main() {
     string test_path = "../test_dir/";
 
@@ -40,7 +32,7 @@ int main() {
             cv::Mat img = cv::imread("../test_data/" + std::to_string(i + 1) + ".jpg");
             memcpy(data->imgs + 2160 * 3840 * 3 * i, img.data, 2160 * 3840 * 3);
         }
-        save(test_path, j, data);
+//        save(test_path, j, data);
         struct timeval tv;
         gettimeofday(&tv, NULL);
         long now1 = tv.tv_sec * 1000 + tv.tv_usec / 1000;

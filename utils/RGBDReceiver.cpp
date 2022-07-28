@@ -245,13 +245,14 @@ RGBDReceiver::RGBDReceiver() {
 int RGBDReceiver::open(std::string filename) {
     if (isFileExists_stat(filename)) {
         std::cout << filename << std::endl;
-        remove(filename.c_str());
-    }
-    int32_t ret = mkfifo(filename.c_str(), S_IFIFO | 0666);
-    if (ret == -1) {
-        std::cout << errno << std::endl;
-        std::cout << "Make fifo error\n";
-        return -1;
+//        remove(filename.c_str());
+    } else {
+        int32_t ret = mkfifo(filename.c_str(), S_IFIFO | 0666);
+        if (ret == -1) {
+            std::cout << errno << std::endl;
+            std::cout << "Make fifo error\n";
+            return -1;
+        }
     }
     fd = ::open(filename.c_str(), O_RDONLY);
     fcntl(fd, 1031, 1048576);

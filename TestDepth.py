@@ -26,9 +26,9 @@ de_rgbd = DepthEstimation_forRGBD(5, bgrs, cams, matting_model_path, fmn_model_p
 # recevier.open("./pipe_dir/pipe1")
 # print("pipe1 open")
 
-sender = RGBDSender()
-sender.open("./pipe_dir/pipe2")
-print("pipe2 open")
+# sender = RGBDSender()
+# sender.open("./pipe_dir/pipe2")
+# print("pipe2 open")
 
 dirs = './test_dir/'
 if not os.path.exists(dirs):
@@ -51,17 +51,17 @@ for j in range(test_num):
         rgbd_data["crops"]
     )
     t3 = time.time()
-    print(j, rgbd_data_2.crops)
-    bytes = sender.sendData(rgbd_data_2)
+    # print(j, rgbd_data_2.crops)
+    # bytes = sender.sendData(rgbd_data_2)
 
-    if (bytes == -1):
-        print("pipe has been closed.")
-        sender.close()
-        break
+    # if (bytes == -1):
+    #     print("pipe has been closed.")
+    #     sender.close()
+    #     break
 
     t4 = time.time()
-    print(
-        f"get time: {t2 - t1:.3f}, depth estimation time: {t3 - t2:.3f}, send time: {t4 - t3}, total time: {t4 - t1:.3f}")
+    print(j,
+          f"get time: {t2 - t1:.3f}, depth estimation time: {t3 - t2:.3f}, send time: {t4 - t3}, total time: {t4 - t1:.3f}")
     time_sum[0] += t2 - t1
     time_sum[1] += t3 - t2
     time_sum[2] += t4 - t3
