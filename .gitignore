@@ -2,7 +2,7 @@
 cmake-build-debug
 test_dir
 pipe_dir
-*/__pycache__/
+**/__pycache__/
 cam_paras
 depth_estimation/test_Mask.ipynb
 depth_estimation/testDepth.py

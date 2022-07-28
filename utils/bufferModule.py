@@ -13,7 +13,7 @@ class BufferModule:
         except FileExistsError:
             self.shm = shared_memory.SharedMemory(name = names, create=False,size = (bufferSize + 1) * nbytes * BufferModule.getshmBuffer(dtypes) + 2 )
         
-        #buffer
+        #buffer        
         if (height * width * channels != 0):
             self.memorySmallBuffer = np.ndarray(((bufferSize+1) * height * width * channels * BufferModule.getshmBuffer(dtypes) + 2  ) ,  dtype=np.uint8, buffer=self.shm.buf)
             self.memoryBuffer = np.ndarray((bufferSize+1,height,width,channels),dtype = dtypes,buffer = self.memorySmallBuffer.data,offset = 2)
