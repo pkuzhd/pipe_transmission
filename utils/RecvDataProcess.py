@@ -2,13 +2,15 @@ from MultiProcessBuffer import MultiProcessBuffer
 import cv2
 import os
 import numpy as np
+from RGBDSender import RGBDData,RGBDSender
 class RecvDataProcess():
     
     MPB: MultiProcessBuffer
     
-    def __init__(self, MPB):
-         self.MPB = MPB
-         savePath = "datas/"
+    def __init__(self, MPB,filename):
+        self.MPB = MPB
+        self.pipeSender = RGBDSender()
+        RGBDSender.open(filename)
          
     def runRGB(self):
         listRGB = []
@@ -59,11 +61,10 @@ class RecvDataProcess():
             depths = self.runDepth()
             masks = self.runMask()
             crops = self.runCrop()
-            for i in range(5):
-                cv2.imwrite(docu+"imgs"+str(k)+str(i)+".png",imgs[i])
-                depths[i] = ( depths[i] - np.min( depths[i])) / (np.max( depths[i]) - np.min( depths[i])) * 255
-                cv2.imwrite(docu+"depth"+str(k)+str(i)+".png",depths[i])
-                cv2.imwrite(docu+"mask"+str(k)+str(i)+".png",masks[i]) 
-                
-            senddatas = [view,imgs,depths,masks,crops]
+            # for i in range(5):
+            #     cv2.imwrite(docu+"imgs"+str(k)+str(i)+".png",imgs[i])
+            #     depths[i] = ( depths[i] - np.min( depths[i])) / (np.max( depths[i]) - np.min( depths[i])) * 255
+            #     cv2.imwrite(docu+"depth"+str(k)+str(i)+".png",depths[i])
+            #     cv2.imwrite(docu+"mask"+str(k)+str(i)+".png",masks[i]) 
+            senddatas = RGBDData(view,imgs,depths,masks,crops)
             print("write to pipes")
