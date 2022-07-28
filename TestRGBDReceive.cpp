@@ -21,27 +21,27 @@ void save(string path, int idx, RGBDData *data) {
 }
 
 int main() {
-    string test_path = "./test_dir/";
-    for (int j = 0; j < 5; ++j) {
-        for (int i = 0; i < 5; ++i) {
-            cv::Mat img = cv::imread(string("./test_data/" + to_string((j + i) % 5 + 1) + ".jpg"));
-            cv::Mat img_gt(2160, 3840, CV_8UC3);
-            memcpy(img_gt.data, img.data, 2160 * 3840 * 3);
-            cv::imwrite(test_path + to_string(j + 1) + "-" + to_string(i + 1) + "-gt.jpg", img_gt);
-        }
-    }
+    string test_path = "../test_dir/";
+//    for (int j = 0; j < 5; ++j) {
+//        for (int i = 0; i < 5; ++i) {
+//            cv::Mat img = cv::imread(string("../test_data/" + to_string((j + i) % 5 + 1) + ".jpg"));
+//            cv::Mat img_gt(2160, 3840, CV_8UC3);
+//            memcpy(img_gt.data, img.data, 2160 * 3840 * 3);
+//            cv::imwrite(test_path + to_string(j + 1) + "-" + to_string(i + 1) + "-gt.jpg", img_gt);
+//        }
+//    }
 
     RGBDReceiver receiver;
-    receiver.open("pipe filename");
+    receiver.open("../pipe_dir/pipe2");
 
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 1000; ++i) {
         cout << "request data " << i << endl;
         RGBDData *data = receiver.getData();
         while (!data) {
             data = receiver.getData();
         }
         cout << "get data " << i << endl;
-        save(test_path, i, data);
+        //save(test_path, i, data);
         delete[] data->imgs;
         delete[] data->depths;
         delete[] data->masks;

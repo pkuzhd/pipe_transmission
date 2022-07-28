@@ -6,6 +6,10 @@
 #define PIPE_TRANSMISSION_IMAGESENDER_H
 
 #include <string>
+#include <cstring>
+#include <cstdio>
+#include <iostream>
+#include <vector>
 
 struct ImageData {
     int n;
@@ -15,6 +19,8 @@ struct ImageData {
 
 class ImageSender {
 public:
+    int32_t fd;
+
     ImageSender();
 
     ~ImageSender();
@@ -24,6 +30,8 @@ public:
     int close();
 
     int sendData(ImageData *data);
+
+    bool isFileExists_stat(std::string &name);
 };
 
 

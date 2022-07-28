@@ -6,30 +6,38 @@
 #define PIPE_TRANSMISSION_RGBDRECEIVER_H
 
 #include <string>
+#include <cstring>
+#include <cstdio>
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <queue>
 
+#include "IRGBDReceiver.h"
 
-struct RGBDData {
-    int n;
-    int *w, *h;
-    int *w_crop, *h_crop, *x, *y;
-    char *imgs;
-    char *depths;
-    char *masks;
-
-    char *getImage(int i);
-    char *getDepth(int i);
-    char *getMask(int i);
-};
-
-class RGBDReceiver {
+class RGBDReceiver : public IRGBDReceiver {
 public:
+    int32_t fd;
+    std::queue<RGBDData *> queue;
+    std::mutex m;
+
     RGBDReceiver();
+
     ~RGBDReceiver();
 
-    int open(std::string filename);
-    int close();
+    void addData(RGBDData *data);
 
-    RGBDData *getData();
+    int open(std::string filename) override;
+
+    int close() override;
+
+    bool isFileExists_stat(std::string &name);
+
+    RGBDData *getSingleFrame();
+
+    RGBDData *getData() override;
+
+    int getBufferSize() override;
 };
 
 

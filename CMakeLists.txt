@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(pipe_transmission)
+project(pipe_transmission VERSION 0.1)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -12,11 +12,23 @@ set(OPENCV_COMPONENTS
         opencv_objdetect
         opencv_video)
 
+add_library(TransLib
+        utils/ImageSender.cpp
+        utils/RGBDReceiver.cpp
+        utils/FileRGBDReceiver.cpp
+        utils/RGBDData.cpp
+        )
+#set_target_properties(TransLib PROPERTIES PUBLIC_HEADER ${CMAKE_SOURCE_DIR}/utils/RGBDReceiver.h)
+target_link_libraries(
+        TransLib
+        ${OPENCV_COMPONENTS}
+)
 add_executable(receive
-        TestRGBDReceive.cpp
-        utils/RGBDReceiver.cpp)
+        TestRGBDReceive.cpp)
 target_link_libraries(receive
         ${OPENCV_COMPONENTS}
+        TransLib
+        pthread
         )
 
 add_executable(send
@@ -24,4 +36,6 @@ add_executable(send
         utils/RGBDReceiver.cpp utils/ImageSender.cpp utils/ImageSender.h)
 target_link_libraries(send
         ${OPENCV_COMPONENTS}
+        TransLib
+        pthread
         )
