@@ -42,7 +42,7 @@ for j in range(test_num):
     data = recevier.getData()
     t2 = time.time()
     rgbd_data = de_rgbd.getRGBD(data, crop=True)
-    rgbd_data_2 = RGBDData(
+    rgbd_data = RGBDData(
         rgbd_data["num_view"],
         rgbd_data["imgs"],
         rgbd_data["depths"],
@@ -50,7 +50,7 @@ for j in range(test_num):
         rgbd_data["crops"]
     )
     t3 = time.time()
-    bytes = sender.sendData(rgbd_data_2)
+    bytes = sender.sendData(rgbd_data)
 
     if (bytes == -1):
         print("pipe has been closed.")

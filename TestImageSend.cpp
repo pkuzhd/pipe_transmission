@@ -11,14 +11,6 @@
 
 using namespace std;
 
-void save(string path, int idx, ImageData *data) {
-    for (int i = 0; i < data->n; ++i) {
-        cv::Mat img(data->h[i], data->w[i], CV_8UC3);
-        memcpy(img.data, data->imgs + 2160 * 3840 * 3 * i, data->w[i] * data->h[i] * 3);
-        cv::imwrite(path + to_string(idx + 1) + "-" + to_string(i + 1) + ".gt.jpg", img);
-    }
-}
-
 int main() {
     string test_path = "../test_dir/";
 
