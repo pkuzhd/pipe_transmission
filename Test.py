@@ -4,7 +4,7 @@ import torch
 import time
 import os
 
-from depth_estimation.DepthEstimation import DepthEstimation_forRGBD
+from depth_estimation.draft_v1 import DepthEstimation_forRGBD
 from utils.ImageReceiver import ImageData, ImageReceiver
 from utils.RGBDSender import RGBDData, RGBDSender
 from depth_estimation.data_preparation import load_cam_paras, scale_camera
@@ -23,14 +23,16 @@ device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
 # initialize backgrond, paras and models
 de_rgbd = DepthEstimation_forRGBD(5, bgrs, cams, matting_model_path, fmn_model_path, device) 
 
-dirs = '/home/wph/results/1080p_videos/'+f'example/'
+dirs = '/home/wph/results/pipe/'
 if not os.path.exists(dirs):
     os.makedirs(dirs)
 
-for i in range(1):
+for i in range(3):
+    # cur_imgs = np.stack(imgs)
     data = ImageData(5, imgs)
     st = time.time()
-    rgbd_data = de_rgbd.getRGBD(data, crop=True)
+    # rgbd_data = de_rgbd.change_back_RGBD(cur_imgs, crop=True)
+    rgbd_data = de_rgbd.getRGBD(data, crop=True, checkConsistancy=True)
     print(f"total time: {time.time() - st}")
     
     for key in rgbd_data.keys():
