@@ -42,6 +42,9 @@ int main() {
         }
         cout << "get data " << i << endl;
         //save(test_path, i, data);
+//        delete[] data->imgs;
+//        delete[] data->depths;
+//        delete[] data->masks;
         delete data;
     }
     receiver.close();
