@@ -5,8 +5,8 @@ import utils.SendDataProcess
 import numpy as np
 import cv2
 import os
-from ImageReceiver import ImageData
-from RGBDSender import RGBDData
+from utils.ImageReceiver import ImageData
+from utils.RGBDSender import RGBDData
 class DepthProcess():
     
     SendDataProcess: utils.SendDataProcess.SendDataProcess
