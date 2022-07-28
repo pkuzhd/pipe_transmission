@@ -40,7 +40,7 @@ int main() {
             cv::Mat img = cv::imread("../test_data/" + std::to_string(i + 1) + ".jpg");
             memcpy(data->imgs + 2160 * 3840 * 3 * i, img.data, 2160 * 3840 * 3);
         }
-        save(test_path, j, data);
+//        save(test_path, j, data);
         struct timeval tv;
         gettimeofday(&tv, NULL);
         long now1 = tv.tv_sec * 1000 + tv.tv_usec / 1000;
