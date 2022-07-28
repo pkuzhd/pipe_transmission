@@ -174,7 +174,9 @@ class DepthEstimation_forRGBD():
     def getRGBD(self, imgdata, crop=False):
         times = 1
         r_scale = 0.5
-        ori_imgs = imgdata.imgs.copy()
+        #ori_imgs = imgdata.imgs.copy()
+        ori_imgs = imgdata.copy()
+        
         # ref_crop = [(720, 880, 850, 189), (720, 880, 780, 111), (720, 880, 680, 198), (720, 880, 550, 200), (720, 880, 491, 159)]
         # ref_crop = [(768, 896, 850, 170), (768, 896, 780, 111), (768, 896, 680, 170), (768, 896, 550, 180), (768, 896, 491, 159)]
         ref_crop = [(768, 896, 768, 173), (768, 896, 695, 95), (768, 896, 613, 182), (768, 896, 567, 184), (768, 896, 443, 143)]
@@ -265,7 +267,9 @@ class DepthEstimation_forRGBD():
         # get_back_et = time.time()
 
         # masks= [cv2.resize(masks[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
-        depths = [cv2.resize(depths[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
+        
+        depths = [cv2.resize(depths[i], None, fx=1/r_scale, fy=1/r_scale ) for i in range(5)]
+        depths = [np.expand_dims(depths[i],axis=2) for i in range(5)]
 
         # et = time.time()
 
