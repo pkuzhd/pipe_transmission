@@ -9,6 +9,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+// TODO: P1 use unique_lock
+// TODO: P1 malloc/free -> new/delete
+// TODO: P1 remove log
+// TODO: P1 format code
+
+// TODO: P3 exit
 void readdata_thread(RGBDReceiver *R) {
     while (1) {
         RGBDData *rgbdData = R->getSingleFrame();
@@ -19,12 +25,13 @@ void readdata_thread(RGBDReceiver *R) {
     }
 }
 
+// TODO: P2 add condition variable
 void RGBDReceiver::addData(RGBDData *data) {
 
     while (1) {
         bool flag;
         m.lock();
-        if (queue.size() > 10) {
+        if (queue.size() > 10) { // TODO: P1 add buffer size
             flag = 0;
         } else {
             queue.push(data);
@@ -51,9 +58,10 @@ RGBDData *RGBDReceiver::getData() {
 
 }
 
+// TODO: P1 add pipe size
 RGBDData *RGBDReceiver::getSingleFrame() {
     const int32_t bufSize = 1048576;
-    char readBuf[bufSize];
+    char readBuf[bufSize]; // TODO: P1 use new/delete
     memset(readBuf, '\0', bufSize);
     RGBDData *rgbdData = (RGBDData *) malloc(sizeof(RGBDData));
     int tmp;
@@ -118,6 +126,8 @@ RGBDData *RGBDReceiver::getSingleFrame() {
 
             cur += sizeof(unsigned int);
 
+            // TODO P1
+            // rgbdData->w[i] = *(int*) (readBuf + cur);
             rgbdData->w[i] = (int) w;
             rgbdData->h[i] = (int) h;
             rgbdData->x[i] = (int) x;
@@ -245,6 +255,7 @@ RGBDReceiver::RGBDReceiver() {
 int RGBDReceiver::open(std::string filename) {
     if (isFileExists_stat(filename)) {
         std::cout << filename << std::endl;
+        // TODO: P1 remove
         remove(filename.c_str());
     }
     int32_t ret = mkfifo(filename.c_str(), S_IFIFO | 0666);
