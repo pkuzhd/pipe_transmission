@@ -4,7 +4,7 @@ import torch
 import time
 import os
 
-from depth_estimation.draft_v1 import DepthEstimation_forRGBD
+from depth_estimation.DepthEstimation import DepthEstimation_forRGBD
 from utils.ImageReceiver import ImageData, ImageReceiver
 from utils.RGBDSender import RGBDData, RGBDSender
 from depth_estimation.data_preparation import load_cam_paras, scale_camera
@@ -28,7 +28,7 @@ dirs = '/home/wph/results/pipe/'
 if not os.path.exists(dirs):
     os.makedirs(dirs)
 
-for i in range(3):
+for i in range(1):
     # cur_imgs = np.stack(imgs)
     data = ImageData(5, imgs)
     st = time.time()

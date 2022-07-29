@@ -167,21 +167,19 @@ def depth_tensor2numpy(depths_tensor, add_rsize=1):
     for i in range(view_num):
         tmp = depths_tensor[0][i].numpy()
         # tmp = 1.0 / tmp
-        maxn = np.max(tmp)#1.6###1.6
-        minn = np.min(tmp)#0.7###1.0
+        # maxn = np.max(tmp)#1.6###1.6
+        # minn = np.min(tmp)#0.7###1.0
         # maxn = 1.6
         # minn = 0.6
         # print('max:{},min:{}'.format(maxn, minn))
         # print(f"delta: {maxn-minn}")
-        tmp = (tmp - minn) / (maxn - minn) * 255.0
-        tmp = tmp.astype('uint8')
-        tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
+        # tmp = (tmp - minn) / (maxn - minn) * 255.0
+        # tmp = tmp.astype('uint8')
+        # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
         
-        # tmp_ori = cv2.resize(tmp,dsize=None, fx=4, fy=4, interpolation=cv2.INTER_LINEAR)
-        tmp_ori = tmp
         # tmp_ori = tmp_ori * (alpha[i][:,:,0]/255)
         
-        depths.append(tmp_ori)
+        depths.append(tmp)
 
     
     return depths
