@@ -1,4 +1,5 @@
-
+import sys
+sys.path.append('/home/zhd/CLionProjects/pipe_transmission/utils/')
 from bufferModule import BufferModule
 import numpy as np
 import multiprocessing
@@ -67,6 +68,9 @@ class MultiProcessBuffer:
     
     def writeView(self,inputImage):
         return self.bufferView.writeData(inputImage)
+
+    def freeRGBtoPipeBuffer(self):
+        self.bufferRGBtoPipe.unlinkShm()
 
     def freeRGBBuffer(self):
         self.bufferRGB.unlinkShm()

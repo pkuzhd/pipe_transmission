@@ -33,7 +33,8 @@ class RGBDSender():
             msg += data.imgs[i].shape[0].to_bytes(4, "little")  # h
             msg += data.imgs[i].shape[1].to_bytes(4, "little")  # w
             for j in range(4):
-                msg += data.crops[i][j].to_bytes(4, "little")  # w_crop, h_crop, x, y
+                tmp = int(data.crops[i][j])
+                msg += tmp.to_bytes(4, "little")  # w_crop, h_crop, x, y
 
         try:
             len_send = os.write(self.wf, msg)
@@ -44,8 +45,10 @@ class RGBDSender():
         for i in range(data.N):
             w = data.crops[i][0]
             h = data.crops[i][1]
-            len_send += os.write(self.wf, data.imgs[i].data.tobytes())
-
+            try:
+                len_send += os.write(self.wf, data.imgs[i].data.tobytes())
+            except BrokenPipeError:
+                print("")
         # send depths
         for i in range(data.N):
             w_crop = data.crops[i][0]

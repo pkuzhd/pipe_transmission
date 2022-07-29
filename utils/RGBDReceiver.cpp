@@ -62,13 +62,17 @@ RGBDData *RGBDReceiver::getSingleFrame() {
         std::cout << "read error\n";
         free(rgbdData);
         return nullptr;
-    } else {
+    }
+    else {
         std::cout << "121 " << tmp << std::endl;
         int cur = 0;
 
         uint8_t N;
         memcpy(&N, readBuf, sizeof(unsigned char));
         rgbdData->n = (int) N;
+        if (rgbdData -> n == 0){
+            std::cout << "n == 0  error" << std::endl;
+        }
         std::cout << "now length is: " << rgbdData->n << std::endl;
 
         cur += sizeof(unsigned char);

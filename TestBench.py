@@ -96,7 +96,7 @@ if __name__ == "__main__":
     pythontopipeProcess.start()
     depthProcess.run()
     #depthEstimationProcess = multiprocessing.Process(target=depthProcess.run,args=())
-    pipetopythonProcess.join()
+    #pipetopythonProcess.join()
     
     #depthEstimationProcess.start()
     
