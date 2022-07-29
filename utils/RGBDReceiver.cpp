@@ -130,62 +130,45 @@ RGBDData *RGBDReceiver::getSingleFrame() {
         rgbdData->masks = new char[total_masks_len];
 
         // add the imgs
-        memset(readBuf, '\0', bufSize);
         int imgs_len = 0;
-
-        int i = 0;
         while (imgs_len + bufSize < total_imgs_len) {
-            int len = read(fd, readBuf, bufSize);
-            memcpy(rgbdData->imgs + imgs_len, readBuf, len);
+            int len = read(fd, rgbdData->imgs + imgs_len, bufSize);
             imgs_len += len;
-            memset(readBuf, '\0', bufSize);
         }
 
 
         // add the remain total - imgs_len part
-        memset(readBuf, '\0', bufSize);
-        int len = read(fd, readBuf, total_imgs_len - imgs_len);
-
-        memcpy(rgbdData->imgs + imgs_len, readBuf, total_imgs_len - imgs_len);
+        int len = read(fd, rgbdData->imgs + imgs_len, total_imgs_len - imgs_len);
         imgs_len += len;
 
 
         // add the depths part
-        memset(readBuf, '\0', bufSize);
         int depths_len = 0;
 
-        i = 0;
+        
         while (depths_len + bufSize < total_depths_len) {
-            int len = read(fd, readBuf, bufSize);
-            memcpy(rgbdData->depths + depths_len, readBuf, len);
+            int len = read(fd, rgbdData->depths + depths_len, bufSize);
             depths_len += len;
             memset(readBuf, '\0', bufSize);
         }
 
 
         // add the remain total - depths_len part
-        memset(readBuf, '\0', bufSize);
-        len = read(fd, readBuf, total_depths_len - depths_len);
-        memcpy(rgbdData->depths + depths_len, readBuf, total_depths_len - depths_len);
+        len = read(fd, rgbdData->depths + depths_len, total_depths_len - depths_len);
         depths_len += len;
         
         
 
         // add the masks part
-        memset(readBuf, '\0', bufSize);
         int masks_len = 0;
-        i = 0;
         while (masks_len + bufSize < total_masks_len) {
-            int len = read(fd, readBuf, bufSize);
-            memcpy(rgbdData->masks + masks_len, readBuf, len);
+            int len = read(fd, rgbdData->masks + masks_len, bufSize);
             masks_len += len;
-            memset(readBuf, '\0', bufSize);
         }
 
         // add the remain total - masks_len part
-        memset(readBuf, '\0', bufSize);
-        len = read(fd, readBuf, total_masks_len - masks_len);
-        memcpy(rgbdData->masks + masks_len, readBuf, total_masks_len - masks_len);
+        
+        len = read(fd, rgbdData->masks + masks_len, total_masks_len - masks_len);
         masks_len += len;
         
         delete []readBuf;
