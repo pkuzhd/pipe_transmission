@@ -20,8 +20,12 @@ public:
     int32_t fd;
     std::queue<RGBDData *> queue;
     std::mutex m;
+    
+    int bufSize;
+    int queueSize;
 
     RGBDReceiver();
+    RGBDReceiver(int bufSize, int queueSize);
 
     ~RGBDReceiver();
 
