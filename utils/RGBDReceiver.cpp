@@ -31,7 +31,7 @@ void RGBDReceiver::addData(RGBDData *data) {
     while (1) {
         bool flag;
         m.lock();
-        if (queue.size() > 10) { // TODO: P1 add buffer size
+        if (queue.size() > queueSize) { // TODO: P1 add buffer size
             flag = 0;
         } else {
             queue.push(data);
