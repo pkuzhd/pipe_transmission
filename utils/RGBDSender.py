@@ -1,7 +1,4 @@
 import os
-import numpy as np
-import json
-import datetime
 
 
 class RGBDData():
