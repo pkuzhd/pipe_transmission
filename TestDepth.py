@@ -22,9 +22,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
 # initialize backgrond, paras and models
 de_rgbd = DepthEstimation_forRGBD(5, bgrs, cams, matting_model_path, fmn_model_path, device)
 
-# recevier = ImageReceiver()
-# recevier.open("./pipe_dir/pipe1")
-# print("pipe1 open")
+recevier = ImageReceiver()
+recevier.open("./pipe_dir/pipe1")
+print("pipe1 open")
 
 sender = RGBDSender()
 sender.open("./pipe_dir/pipe2")
@@ -39,8 +39,8 @@ test_num = 400
 
 for j in range(test_num):
     t1 = time.time()
-    data = ImageData(5, imgs)
-    # data = recevier.getData()
+    # data = ImageData(5, imgs)
+    data = recevier.getData()
     t2 = time.time()
     rgbd_data = de_rgbd.getRGBD(data, crop=True)
     rgbd_data_2 = RGBDData(
