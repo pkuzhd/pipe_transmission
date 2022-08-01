@@ -21,10 +21,11 @@ public:
     int32_t fd;
     std::queue<RGBDData *> queue;
     std::mutex m;
-    std::condition_variable cv;
+    std::condition_variable not_full;
 
     int bufSize;
     int queueSize;
+    int is_exit;
 
     RGBDReceiver();
 

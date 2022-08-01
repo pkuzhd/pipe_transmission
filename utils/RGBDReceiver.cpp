@@ -16,7 +16,7 @@
 
 // TODO: P3 exit
 void readdata_thread(RGBDReceiver *R) {
-    while (1) {
+    while (!R->is_exit) {
         RGBDData *rgbdData = R->getSingleFrame();
         while (!rgbdData) {
             rgbdData = R->getSingleFrame();
@@ -30,13 +30,14 @@ void RGBDReceiver::addData(RGBDData *data) {
 
     std::unique_lock<std::mutex> guard(m);
     while (queue.size() > queueSize) { // TODO: P1 add buffer size (done)
-        cv.wait(guard);
+        not_full.wait(guard);
     }
     queue.push(data);
 }
 
 RGBDData *RGBDReceiver::getData() {
     std::unique_lock<std::mutex> guard(m);
+    not_full.notify_one();
     if (queue.size() == 0) {
         return nullptr;
     }
@@ -167,12 +168,13 @@ RGBDData *RGBDReceiver::getSingleFrame() {
 }
 
 RGBDReceiver::~RGBDReceiver() {
-
+    is_exit = 1;
 }
 
 RGBDReceiver::RGBDReceiver() {
     bufSize = 1048576;
     queueSize = 64;
+    is_exit = 0;
 }
 
 RGBDReceiver::RGBDReceiver(int bufSize, int queueSize) {
