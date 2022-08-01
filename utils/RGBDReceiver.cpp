@@ -9,9 +9,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-// TODO: P1 use unique_lock
-// TODO: P1 malloc/free -> new/delete
-// TODO: P1 remove log
+// TODO: P1 use unique_lock (done)
+// TODO: P1 malloc/free -> new/delete (done)
+// TODO: P1 remove log (done)
 // TODO: P1 format code
 
 // TODO: P3 exit
@@ -30,14 +30,13 @@ void RGBDReceiver::addData(RGBDData *data) {
 
     while (1) {
         bool flag;
-        m.lock();
-        if (queue.size() > queueSize) { // TODO: P1 add buffer size
+        std::unique_lock<std::mutex> guard(m);
+        if (queue.size() > queueSize) { // TODO: P1 add buffer size (done)
             flag = 0;
         } else {
             queue.push(data);
             flag = 1;
         }
-        m.unlock();
         if (flag == 1) {
             break;
         }
@@ -45,21 +44,19 @@ void RGBDReceiver::addData(RGBDData *data) {
 }
 
 RGBDData *RGBDReceiver::getData() {
-    m.lock();
+    std::unique_lock<std::mutex> guard(m);
     if (queue.size() == 0) {
-        m.unlock();
         return nullptr;
     }
     RGBDData *rgbdData = queue.front();
     queue.pop();
-    m.unlock();
     return rgbdData;
 
 }
 
-// TODO: P1 add pipe size
+// TODO: P1 add pipe size (done)
 RGBDData *RGBDReceiver::getSingleFrame() {
-    char * readBuf = new char[bufSize]; // TODO: P1 use new/delete cc
+    char * readBuf = new char[bufSize]; // TODO: P1 use new/delete (done)
     memset(readBuf, '\0', bufSize);
     RGBDData *rgbdData = new RGBDData;
     int tmp;
