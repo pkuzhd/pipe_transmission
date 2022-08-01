@@ -29,9 +29,9 @@ void readdata_thread(RGBDReceiver *R) {
 void RGBDReceiver::addData(RGBDData *data) {
 
     std::unique_lock<std::mutex> guard(m);
-    while(queue.size() > queueSize) { // TODO: P1 add buffer size (done)
+    while (queue.size() > queueSize) { // TODO: P1 add buffer size (done)
         cv.wait(guard);
-    } 
+    }
     queue.push(data);
 }
 

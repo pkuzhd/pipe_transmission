@@ -22,7 +22,7 @@ public:
     std::queue<RGBDData *> queue;
     std::mutex m;
     std::condition_variable cv;
-    
+
     int bufSize;
     int queueSize;
 
