@@ -12,7 +12,7 @@
 // TODO: P1 use unique_lock (done)
 // TODO: P1 malloc/free -> new/delete (done)
 // TODO: P1 remove log (done)
-// TODO: P1 format code
+// TODO: P1 format code (done)
 
 // TODO: P3 exit
 void readdata_thread(RGBDReceiver *R) {
@@ -25,22 +25,14 @@ void readdata_thread(RGBDReceiver *R) {
     }
 }
 
-// TODO: P2 add condition variable
+// TODO: P2 add condition variable (done)
 void RGBDReceiver::addData(RGBDData *data) {
 
-    while (1) {
-        bool flag;
-        std::unique_lock<std::mutex> guard(m);
-        if (queue.size() > queueSize) { // TODO: P1 add buffer size (done)
-            flag = 0;
-        } else {
-            queue.push(data);
-            flag = 1;
-        }
-        if (flag == 1) {
-            break;
-        }
-    }
+    std::unique_lock<std::mutex> guard(m);
+    while(queue.size() > queueSize) { // TODO: P1 add buffer size (done)
+        cv.wait(guard);
+    } 
+    queue.push(data);
 }
 
 RGBDData *RGBDReceiver::getData() {

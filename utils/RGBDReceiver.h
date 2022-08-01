@@ -12,6 +12,7 @@
 #include <thread>
 #include <mutex>
 #include <queue>
+#include <condition_variable>
 
 #include "IRGBDReceiver.h"
 
@@ -20,6 +21,7 @@ public:
     int32_t fd;
     std::queue<RGBDData *> queue;
     std::mutex m;
+    std::condition_variable cv;
     
     int bufSize;
     int queueSize;
