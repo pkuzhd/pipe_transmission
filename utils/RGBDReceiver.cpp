@@ -48,21 +48,21 @@ RGBDData *RGBDReceiver::getData() {
 
 // TODO: P1 add pipe size (done)
 RGBDData *RGBDReceiver::getSingleFrame() {
-    char * readBuf = new char[bufSize]; // TODO: P1 use new/delete (done)
+    char *readBuf = new char[bufSize]; // TODO: P1 use new/delete (done)
     memset(readBuf, '\0', bufSize);
     RGBDData *rgbdData = new RGBDData;
     int tmp;
 
     if ((tmp = read(fd, readBuf, 121)) <= 0) {
         std::cout << "read error\n";
-        delete []readBuf;
+        delete[]readBuf;
         delete rgbdData;
         return nullptr;
     } else {
 
         int cur = 0;
 
-        rgbdData->n = *(int8_t*) (readBuf + cur);
+        rgbdData->n = *(int8_t *) (readBuf + cur);
         cur += sizeof(unsigned char);
 
         rgbdData->w = new int[rgbdData->n];
@@ -75,17 +75,17 @@ RGBDData *RGBDReceiver::getSingleFrame() {
 
         for (int i = 0; i < rgbdData->n; i++) {
             // rgbdData->w[i] = *(int*) (readBuf + cur);
-            rgbdData->h[i] = *(int*) (readBuf + cur);
+            rgbdData->h[i] = *(int *) (readBuf + cur);
             cur += sizeof(unsigned int);
-            rgbdData->w[i] = *(int*) (readBuf + cur);
+            rgbdData->w[i] = *(int *) (readBuf + cur);
             cur += sizeof(unsigned int);
-            rgbdData->w_crop[i] = *(int*) (readBuf + cur);
+            rgbdData->w_crop[i] = *(int *) (readBuf + cur);
             cur += sizeof(unsigned int);
-            rgbdData->h_crop[i] = *(int*) (readBuf + cur);
+            rgbdData->h_crop[i] = *(int *) (readBuf + cur);
             cur += sizeof(unsigned int);
-            rgbdData->x[i] = *(int*) (readBuf + cur);
+            rgbdData->x[i] = *(int *) (readBuf + cur);
             cur += sizeof(unsigned int);
-            rgbdData->y[i] = *(int*) (readBuf + cur);
+            rgbdData->y[i] = *(int *) (readBuf + cur);
             cur += sizeof(unsigned int);
 
             std::cout << "now w[i] is: " << rgbdData->w[i] << std::endl;
@@ -110,9 +110,9 @@ RGBDData *RGBDReceiver::getSingleFrame() {
         for (int i = 0; i < rgbdData->n; i++) {
             total_masks_len += rgbdData->w_crop[i] * rgbdData->h_crop[i];
         }
-        
+
         // std::cout << total_imgs_len << std::endl;
-        
+
 
         rgbdData->imgs = new char[total_imgs_len];
         rgbdData->depths = new char[total_depths_len];
@@ -134,7 +134,7 @@ RGBDData *RGBDReceiver::getSingleFrame() {
         // add the depths part
         int depths_len = 0;
 
-        
+
         while (depths_len + bufSize < total_depths_len) {
             int len = read(fd, rgbdData->depths + depths_len, bufSize);
             depths_len += len;
@@ -145,8 +145,8 @@ RGBDData *RGBDReceiver::getSingleFrame() {
         // add the remain total - depths_len part
         len = read(fd, rgbdData->depths + depths_len, total_depths_len - depths_len);
         depths_len += len;
-        
-        
+
+
 
         // add the masks part
         int masks_len = 0;
@@ -156,11 +156,11 @@ RGBDData *RGBDReceiver::getSingleFrame() {
         }
 
         // add the remain total - masks_len part
-        
+
         len = read(fd, rgbdData->masks + masks_len, total_masks_len - masks_len);
         masks_len += len;
-        
-        delete []readBuf;
+
+        delete[]readBuf;
         return rgbdData;
     }
     return nullptr;
@@ -174,6 +174,7 @@ RGBDReceiver::RGBDReceiver() {
     bufSize = 1048576;
     queueSize = 64;
 }
+
 RGBDReceiver::RGBDReceiver(int bufSize, int queueSize) {
     this->bufSize = bufSize;
     this->queueSize = queueSize;

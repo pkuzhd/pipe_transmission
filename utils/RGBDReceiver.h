@@ -27,6 +27,7 @@ public:
     int queueSize;
 
     RGBDReceiver();
+
     RGBDReceiver(int bufSize, int queueSize);
 
     ~RGBDReceiver();
