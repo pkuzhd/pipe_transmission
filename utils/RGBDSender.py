@@ -27,7 +27,8 @@ class RGBDSender():
 
         # send N
         msg = data.N.to_bytes(4, "little")
-        
+        if(data.N == -1):
+            return -1
 
         # send h, w, w_crop, h_crop, x, y
         for i in range(data.N):

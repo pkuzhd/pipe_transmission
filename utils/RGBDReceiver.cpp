@@ -14,9 +14,15 @@
 // TODO: P1 remove log (done)
 // TODO: P1 format code (done)
 
-// TODO: P3 exit(done)
+// TODO: P3 exit (done)
 void readdata_thread(RGBDReceiver *R) {
     while (1) {
+        {
+            std::unique_lock<std::mutex> guard(R->m);
+            if(R->is_exit){
+                break;
+            }
+        }
         RGBDData *rgbdData = R->getSingleFrame();
         while (!rgbdData) {
             rgbdData = R->getSingleFrame();
@@ -54,7 +60,7 @@ RGBDData *RGBDReceiver::getSingleFrame() {
     RGBDData *rgbdData = new RGBDData;
     int tmp;
 
-    if ((tmp = read(fd, readBuf, 124)) <= 0) {
+    if ((tmp = read(fd, readBuf, 4)) <= 0) {
         std::cout << "read error\n";
         delete[]readBuf;
         delete rgbdData;
@@ -64,7 +70,15 @@ RGBDData *RGBDReceiver::getSingleFrame() {
         int cur = 0;
 
         rgbdData->n = *(int *) (readBuf + cur);
+        if(rgbdData->n == -1){
+            delete[]readBuf;
+            delete rgbdData;
+            return nullptr;
+        }
+
         cur += sizeof(unsigned int);
+
+        tmp = read(fd, readBuf + cur, 120);
 
         std::cout << "now n is: " << rgbdData->n << std::endl;
 
@@ -169,10 +183,14 @@ RGBDData *RGBDReceiver::getSingleFrame() {
 }
 
 RGBDReceiver::~RGBDReceiver() {
+    {
+        std::unique_lock<std::mutex> guard(m);
+        is_exit = 1;
+    }
     th.join();
 }
 
-RGBDReceiver::RGBDReceiver(): bufSize(1048576), queueSize(64){
+RGBDReceiver::RGBDReceiver(): bufSize(1048576), queueSize(64), is_exit(0){
 
 }
 
