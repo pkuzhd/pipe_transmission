@@ -25,7 +25,7 @@ public:
 
     int bufSize;
     int queueSize;
-    int is_exit;
+    std::thread th;
 
     RGBDReceiver();
 
