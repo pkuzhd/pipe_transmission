@@ -247,10 +247,8 @@ RGBDReceiver::RGBDReceiver() {
 }
 
 int RGBDReceiver::open(std::string filename) {
-    if (isFileExists_stat(filename)) {
+    if (!isFileExists_stat(filename)) {
         std::cout << filename << std::endl;
-//        remove(filename.c_str());
-    } else {
         int32_t ret = mkfifo(filename.c_str(), S_IFIFO | 0666);
         if (ret == -1) {
             std::cout << errno << std::endl;

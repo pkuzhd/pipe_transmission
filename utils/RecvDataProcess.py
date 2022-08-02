@@ -12,12 +12,19 @@ class RecvDataProcess():
         self.MPB = MPB
         self.pipeSender = RGBDSender()
         self.pipeSender.open(filename=filenames)
-         
+
     def runRGB(self):
         listRGB = []
+        t0 = 0
+        t4 = 0
         for i in range(5):
-            RGBs = self.MPB.readRGB().copy()
-            listRGB.append(RGBs)
+            t1 = time.time()
+            t2 = time.time()
+            listRGB.append(self.MPB.readRGB().copy())
+            t3 = time.time()
+            t0 = t0 + t2 - t1
+            t4 = t4 + t3 - t2
+        print("copy = ",t4/5,"read = ",t0/5)
         return listRGB
     
     def runRGBtoPipe(self):
@@ -62,17 +69,17 @@ class RecvDataProcess():
             imgs = self.runRGBtoPipe()
             depths = self.runDepth()
             masks = self.runMask()
-            crops = self.runCrop()
+            crops= self.runCrop()
             # for i in range(5):
             #     cv2.imwrite(docu+"imgs"+str(k)+str(i)+".png",imgs[i])
             #     depths[i] = ( depths[i] - np.min( depths[i])) / (np.max( depths[i]) - np.min( depths[i])) * 255
             #     cv2.imwrite(docu+"depth"+str(k)+str(i)+".png",depths[i])
             #     cv2.imwrite(docu+"mask"+str(k)+str(i)+".png",masks[i])
-            print("view = ",view[0])
-            print("imgs = ",imgs[0])
-            print("depths =",depths[0])
-            print("masks =",masks[0])
-            print("crops = ",crops[0])
+            # print("view = ",view[0])
+            # print("imgs = ",imgs[0])
+            # print("depths =",depths[0])
+            # print("masks =",masks[0])
+            # print("crops = ",crops[0])
             senddatas = RGBDData(int(view[0]),imgs,depths,masks,crops)
             t2 = time.time()
             self.pipeSender.sendData(senddatas)

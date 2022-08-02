@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.18)
 project(pipe_transmission VERSION 0.1)
 
 set(CMAKE_CXX_STANDARD 14)
 
-find_package(OpenCV)
+find_package(OpenCV 3)
 set(OPENCV_COMPONENTS
         opencv_core
         opencv_imgproc
@@ -18,6 +18,7 @@ add_library(TransLib
         utils/FileRGBDReceiver.cpp
         utils/RGBDData.cpp
         )
+        
 #set_target_properties(TransLib PROPERTIES PUBLIC_HEADER ${CMAKE_SOURCE_DIR}/utils/RGBDReceiver.h)
 target_link_libraries(
         TransLib

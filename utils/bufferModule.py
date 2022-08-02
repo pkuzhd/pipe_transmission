@@ -5,14 +5,101 @@ from venv import create
 import numpy as np
 import cv2
 
-class BufferModule:
+class BufferModules:
     def __init__(self,names,width,height,channels,dtypes,nbytes,bufferSize):
-        #memory ID
+        #memory ID   queue + rear/front + isUsed
         try:
-            self.shm = shared_memory.SharedMemory(name = names, create=True,size = (bufferSize + 1) * nbytes * BufferModule.getshmBuffer(dtypes) + 2 )
+            self.shm = shared_memory.SharedMemory(name = names, create=True,size = (bufferSize + 1) * nbytes * BufferModule.getshmBuffer(dtypes) + 2  )
         except FileExistsError:
             self.shm = shared_memory.SharedMemory(name = names, create=False,size = (bufferSize + 1) * nbytes * BufferModule.getshmBuffer(dtypes) + 2 )
-        
+        #buffer
+            self.memorySmallBuffer = np.ndarray(((bufferSize+1) * height * width * channels * BufferModule.getshmBuffer(dtypes) + 2  ) ,  dtype=np.uint8, buffer=self.shm.buf)
+
+        #读者写者问题的三个锁
+        self.lockMutex = Lock()
+        self.lockReader = Semaphore(0)
+        self.lockWriter = Semaphore(bufferSize)
+
+        #queue top
+        self.front = np.ndarray((1) , dtype = np.uint8 ,buffer=self.memorySmallBuffer.data,offset=1)
+        self.rear = np.ndarray((1) , dtype = np.uint8 , buffer=self.memorySmallBuffer.data,offset=0)
+        self.front[0] = 0
+        self.rear[0] = 0
+        self.bufferSize = bufferSize
+
+    def writeData(self,inputImage):
+        self.lockWriter.acquire()
+        self.lockMutex.acquire()
+        inputbuffer = np.ndarray((inputImage.shape[0],inputImage.shape[1],inputImage.shape[2]),dtype=inputImage.dtype,buffer=self.memorySmallBuffer.data,offset=2 + self.rear)
+        inputbuffer[:] = inputImage[:]
+        self.rear[0] = (self.rear[0] + inputbuffer.nbytes) % (self.memorySmallBuffer.nbytes - 2)
+        self.lockMutex.release()
+        self.lockReader.release()
+
+    def readData(self,h,w,channels,dtype):
+        t0 = time.time()
+        self.lockReader.acquire()
+        self.lockMutex.acquire()
+        t1 = time.time()
+        #print("[read] front = ",self.front)
+        if(w * h * channels != 0):
+            outputBuffer = np.ndarray([h,w,channels],dtype=dtype,buffer=self.memorySmallBuffer.data,offset= 2 + self.front)
+        else:
+            outputBuffer = np.ndarray([channels],dtype=dtype,buffer=self.memorySmallBuffer.data,offset= 2 + self.front)
+        self.front[0] = (self.front[0] + outputBuffer.nbytes ) % (self.memorySmallBuffer.nbytes - 2)
+        t2 = time.time()
+        self.lockMutex.release()
+        self.lockWriter.release()
+        #print("ac = ",t1-t0,"copy = ",t2-t1,"rel = ",time.time() - t2)
+        return outputBuffer
+
+    def getRear(self):
+        return self.rear[0]
+
+    def getFront(self):
+        return self.front[0]
+
+    def unlinkShm(self):
+        self.shm.unlink()
+
+    def isEmpty(self):
+        return (self.front[0] == self.rear[0])
+
+    def isFull(self):
+        return (self.front[0] == (self.rear[0] + 1) % (self.bufferSize+1))
+
+    def imwrite(self,path,j):
+        fronts = self.front[0]
+        while ((fronts == self.rear[0]) == False):
+            # cv2.imshow("output"+str(j)+str(fronts),self.memoryBuffer[fronts])
+            # cv2.waitKey()
+            cv2.imwrite(path+str(fronts)+".png",self.memoryBuffer[fronts])
+            fronts = (fronts + 1) % (self.bufferSize+1)
+
+    def getshmBuffer(dtype):
+        if(dtype == np.uint8):
+            return 1
+        elif (dtype == np.float32):
+            return 4
+        elif (dtype == np.float64):
+            return 8
+        elif (dtype == np.uint32):
+            return 4
+        elif (dtype == np.bool):
+            return 1
+        else:
+            raise NotImplementedError
+
+
+
+class BufferModule:
+    def __init__(self,names,width,height,channels,dtypes,nbytes,bufferSize):
+        #memory ID   queue + rear/front + isUsed
+        try:
+            self.shm = shared_memory.SharedMemory(name = names, create=True,size = (bufferSize + 1) * nbytes * BufferModule.getshmBuffer(dtypes) + 2  )
+        except FileExistsError:
+            self.shm = shared_memory.SharedMemory(name = names, create=False,size = (bufferSize + 1) * nbytes * BufferModule.getshmBuffer(dtypes) + 2 )
+
         #buffer        
         if (height * width * channels != 0):
             self.memorySmallBuffer = np.ndarray(((bufferSize+1) * height * width * channels * BufferModule.getshmBuffer(dtypes) + 2  ) ,  dtype=np.uint8, buffer=self.shm.buf)
@@ -21,7 +108,7 @@ class BufferModule:
         else: # views
             self.memorySmallBuffer = np.ndarray(((bufferSize+1) * BufferModule.getshmBuffer(dtypes) * nbytes + 2  ) ,  dtype=np.uint8, buffer=self.shm.buf)
             self.memoryBuffer = np.ndarray((bufferSize+1,channels),dtype = dtypes,buffer = self.memorySmallBuffer.data,offset = 2)
-        
+
         #读者写者问题的三个锁
         self.lockMutex = Lock()
         self.lockReader = Semaphore(0)
@@ -42,15 +129,24 @@ class BufferModule:
             self.lockMutex.release()
             self.lockReader.release()
     
-    def readData(self,outputImage):
+    def readData(self):
+            t0 = time.time()
             self.lockReader.acquire()
             self.lockMutex.acquire()
-            #print("[read] front = ",self.front)
-            outputImage[:] = self.memoryBuffer[self.front[0],:]
+            t1 = time.time()
+            outputImage = self.memoryBuffer[self.front[0],:]
             self.front[0] = (self.front[0] + 1 ) % (self.bufferSize+1)
+            t2 = time.time()
             self.lockMutex.release()
             self.lockWriter.release()
+            #print("ac = ",t1-t0,"copy = ",t2-t1,"rel = ",time.time() - t2)
             return outputImage
+
+    def getRear(self):
+        return self.rear[0]
+
+    def getFront(self):
+        return self.front[0]
 
     def unlinkShm(self):
         self.shm.unlink()
@@ -78,6 +174,8 @@ class BufferModule:
             return 8
         elif (dtype == np.uint32):
             return 4
+        elif (dtype == np.bool):
+            return 1
         else:
             raise NotImplementedError
         

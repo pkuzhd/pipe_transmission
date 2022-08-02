@@ -7,34 +7,69 @@ import os
 import time
 class MultiProcessBuffer:
 
-    def __init__(self, nameRGB,nameDepth,nameMask,widthRGB,heightRGB,channelsRGB,RGBdtypes,RGBnbytes,widthDepth,heightDepth,channelsDepth,\
-                Depthdtypes,Depthnbytes,widthMask,heightMask,channelsMask,Maskdtypes,Masknbytes,\
-                nameCrop,widthCrop,heightCrop,channelsCrop,Cropdtype,Cropnbytes,\
-                nameView,widthView,heightView,channelsView,Viewdtype,Viewnbytes,bufferSize):
-        
-        self.bufferRGB = BufferModule(nameRGB,widthRGB,heightRGB,channelsRGB,RGBdtypes,RGBnbytes,bufferSize)
-        self.bufferDepth = BufferModule(nameDepth,widthDepth,heightDepth,channelsDepth,Depthdtypes,Depthnbytes,bufferSize)
-        self.bufferMask = BufferModule(nameMask,widthMask,heightMask,channelsMask,Maskdtypes,Masknbytes,bufferSize)
-        self.bufferCrop = BufferModule(nameCrop,widthCrop,heightCrop,channelsCrop,Cropdtype,Cropnbytes,bufferSize)
-        self.bufferView = BufferModule(nameView,widthView,heightView,channelsView,Viewdtype,Viewnbytes,1)
-        self.bufferRGBtoPipe = BufferModule(nameRGB+"pipe",widthRGB,heightRGB,channelsRGB,RGBdtypes,RGBnbytes,bufferSize)
-        
-        self.outputRGB = np.zeros((heightRGB,widthRGB,channelsRGB),dtype = RGBdtypes)
+    def __init__(self, nameRGB,nameDepth,nameMask,widthRGB,heightRGB,channelsRGB,RGBdtypes,widthDepth,heightDepth,channelsDepth,\
+                Depthdtypes,widthMask,heightMask,channelsMask,Maskdtypes,\
+                nameCrop,widthCrop,heightCrop,channelsCrop,Cropdtype,\
+                nameView,widthView,heightView,channelsView,Viewdtype,bufferSize):
+
+        self.outputRGB = np.zeros((5,heightRGB,widthRGB,channelsRGB),dtype = RGBdtypes)
         self.outputDepth = np.zeros((heightDepth,widthDepth,channelsDepth),dtype = Depthdtypes)
         self.outputMask = np.zeros((heightMask,widthMask,channelsMask),dtype = Maskdtypes)
         self.outputCrop = np.zeros((channelsCrop),dtype = Cropdtype)
         self.outputView = np.zeros(channelsView,dtype=Viewdtype)
         self.outputRGBtoPipe = np.zeros((heightRGB,widthRGB,channelsRGB),dtype = RGBdtypes)
-    
-    
+
+        self.bufferRGB = BufferModule(nameRGB,widthRGB,heightRGB,channelsRGB,RGBdtypes,self.outputRGB.nbytes,bufferSize)
+        self.bufferDepth = BufferModule(nameDepth,widthDepth,heightDepth,channelsDepth,Depthdtypes,self.outputDepth.nbytes,bufferSize)
+        self.bufferMask = BufferModule(nameMask,widthMask,heightMask,channelsMask,Maskdtypes,self.outputMask.nbytes,bufferSize)
+        self.bufferCrop = BufferModule(nameCrop,widthCrop,heightCrop,channelsCrop,Cropdtype,self.outputCrop.nbytes,bufferSize)
+        self.bufferView = BufferModule(nameView,widthView,heightView,channelsView,Viewdtype,self.outputView.nbytes,bufferSize)
+        self.bufferRGBtoPipe = BufferModule(nameRGB+"pipe",widthRGB,heightRGB,channelsRGB,RGBdtypes,self.outputRGBtoPipe.nbytes,bufferSize)
+
+    def getRGBRear(self):
+        return self.bufferRGB.getRear()
+
+    def getRGBFront(self):
+        return self.bufferRGB.getFront()
+
+    def getDepthRear(self):
+        return self.bufferDepth.getRear()
+
+    def getDepthFront(self):
+        return self.bufferDepth.getFront()
+
+    def getMaskRear(self):
+        return self.bufferMask.getRear()
+
+    def getMaskFront(self):
+        return self.bufferMask.getFront()
+
+    def getCropRear(self):
+        return self.bufferCrop.getRear()
+
+    def getCropFront(self):
+        return self.bufferCrop.getFront()
+
+    def getViewRear(self):
+        return self.bufferView.getRear()
+
+    def getViewFront(self):
+        return self.bufferView.getFront()
+
+    def getRGBtoPipeRear(self):
+        return self.bufferRGBtoPipe.getRear()
+
+    def getRGBtoPipeFront(self):
+        return self.bufferRGBtoPipe.getFront()
+
     def readRGBtoPipe(self):
-        return self.bufferRGBtoPipe.readData(self.outputRGBtoPipe)
+        return self.bufferRGBtoPipe.readData()
 
     def writeRGBtoPipe(self,inputImage):
         return self.bufferRGBtoPipe.writeData(inputImage)
     
     def readRGB(self):
-        return self.bufferRGB.readData(self.outputRGB)
+        return self.bufferRGB.readData()
 
     def writeRGB(self,inputImage):
         return self.bufferRGB.writeData(inputImage)
@@ -43,7 +78,7 @@ class MultiProcessBuffer:
         self.bufferRGB.imwrite(path,j)
     
     def readDepth(self):
-        return self.bufferDepth.readData(self.outputDepth)
+        return self.bufferDepth.readData()
 
     def writeDepth(self,inputImage):
         return self.bufferDepth.writeData(inputImage)
@@ -52,19 +87,19 @@ class MultiProcessBuffer:
         self.bufferDepth.imwrite(path,j)
 
     def readMask(self):
-        return self.bufferMask.readData(self.outputMask)
+        return self.bufferMask.readData()
 
     def writeMask(self,inputImage):
         return self.bufferMask.writeData(inputImage)
     
     def readCrop(self):
-        return self.bufferCrop.readData(self.outputCrop)
+        return self.bufferCrop.readData()
     
     def writeCrop(self,inputImage):
         return self.bufferCrop.writeData(inputImage)
     
     def readView(self):
-        return self.bufferView.readData(self.outputView)
+        return self.bufferView.readData()
     
     def writeView(self,inputImage):
         return self.bufferView.writeData(inputImage)

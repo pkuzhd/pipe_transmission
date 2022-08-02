@@ -3,7 +3,6 @@ import numpy as np
 import time
 import os
 
-from depth_estimation.DepthEstimation import DepthEstimation_forRGBD
 from utils.ImageReceiver import ImageData, ImageReceiver
 from utils.RGBDSender import RGBDData, RGBDSender
 

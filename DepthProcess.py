@@ -49,7 +49,7 @@ class DepthProcess():
             t3 = time.time()
             self.SendDataProcess.runView(np.array([rgbd_data.N], dtype=np.uint8))
             self.SendDataProcess.runRGBtoPipe(rgbd_data.imgs)
-            self.SendDataProcess.runDepth(np.expand_dims(rgbd_data.depths, axis=3))
+            self.SendDataProcess.runDepth(np.expand_dims(rgbd_data.depths,axis=3))
             self.SendDataProcess.runMask(rgbd_data.masks)
             self.SendDataProcess.runCrop(rgbd_data.crops)
             t4 = time.time()
