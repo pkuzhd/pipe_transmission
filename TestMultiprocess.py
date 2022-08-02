@@ -96,7 +96,7 @@ time_sum = [0, 0, 0, 0]
 test_num = 400
 
 depthProcess = DepthProcess(recvinBufferClass,sendinBufferClass,de_rgbd)
-pipetopythonProcess = multiprocessing.Process(target = sendinBufferClass.runRGB,args = (imgs,test_num,))
+pipetopythonProcess = multiprocessing.Process(target = sendinBufferClass.runRGB,args = (test_num,))
 pipetopythonProcess.start()
 pythontopipeProcess = multiprocessing.Process(target=recvinBufferClass.runSender,args =(test_num,))
 pythontopipeProcess.start()

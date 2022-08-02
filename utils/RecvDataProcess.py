@@ -24,7 +24,7 @@ class RecvDataProcess():
             t3 = time.time()
             t0 = t0 + t2 - t1
             t4 = t4 + t3 - t2
-        print("copy = ",t4/5,"read = ",t0/5)
+        #print("copy = ",t4/5,"read = ",t0/5)
         return listRGB
     
     def runRGBtoPipe(self):
