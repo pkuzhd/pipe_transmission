@@ -18,15 +18,27 @@
 void readdata_thread(RGBDReceiver *R) {
     while (1) {
         {
-            std::unique_lock<std::mutex> guard(R->m);
-            if(R->is_exit){
+            std::unique_lock <std::mutex> guard(R->m);
+            if (R->is_exit) {
                 break;
             }
         }
+        int is_exit = 0;
         RGBDData *rgbdData = R->getSingleFrame();
-        while (!rgbdData) {
-            rgbdData = R->getSingleFrame();
+        {
+            std::unique_lock <std::mutex> guard(R->m);
+            is_exit = R->is_exit;
         }
+        if (is_exit)
+            break;
+        while (!rgbdData && !is_exit) {
+            rgbdData = R->getSingleFrame();
+            {
+                std::unique_lock <std::mutex> guard(R->m);
+                is_exit = R->is_exit;
+            }
+        }
+
         R->addData(rgbdData);
     }
 }
@@ -34,7 +46,7 @@ void readdata_thread(RGBDReceiver *R) {
 // TODO: P2 add condition variable (done)
 void RGBDReceiver::addData(RGBDData *data) {
 
-    std::unique_lock<std::mutex> guard(m);
+    std::unique_lock <std::mutex> guard(m);
     while (queue.size() > queueSize) { // TODO: P1 add buffer size (done)
         not_full.wait(guard);
     }
@@ -42,7 +54,7 @@ void RGBDReceiver::addData(RGBDData *data) {
 }
 
 RGBDData *RGBDReceiver::getData() {
-    std::unique_lock<std::mutex> guard(m);
+    std::unique_lock <std::mutex> guard(m);
     not_full.notify_one();
     if (queue.size() == 0) {
         return nullptr;
@@ -70,7 +82,9 @@ RGBDData *RGBDReceiver::getSingleFrame() {
         int cur = 0;
 
         rgbdData->n = *(int *) (readBuf + cur);
-        if(rgbdData->n == -1){
+        if (rgbdData->n == -1) {
+            std::unique_lock <std::mutex> guard(m);
+            is_exit = 1;
             delete[]readBuf;
             delete rgbdData;
             return nullptr;
@@ -184,17 +198,17 @@ RGBDData *RGBDReceiver::getSingleFrame() {
 
 RGBDReceiver::~RGBDReceiver() {
     {
-        std::unique_lock<std::mutex> guard(m);
+        std::unique_lock <std::mutex> guard(m);
         is_exit = 1;
     }
     th.join();
 }
 
-RGBDReceiver::RGBDReceiver(): bufSize(1048576), queueSize(64), is_exit(0){
+RGBDReceiver::RGBDReceiver() : bufSize(1048576), queueSize(64), is_exit(0) {
 
 }
 
-RGBDReceiver::RGBDReceiver(int bufSize, int queueSize): bufSize(bufSize), queueSize(queueSize){
+RGBDReceiver::RGBDReceiver(int bufSize, int queueSize) : bufSize(bufSize), queueSize(queueSize) {
 
 }
 
