@@ -23,7 +23,13 @@ class RGBDSender():
     def sendData(self, data: RGBDData):
 
         # send N
-        msg = data.N.to_bytes(1, "little")
+        msg = data.N.to_bytes(4, "little", signed=True)
+        if(data.N == -1):
+            try:
+                len_send = os.write(self.wf, msg)
+                return 0
+            except BrokenPipeError:
+                return -1
 
         # send h, w, w_crop, h_crop, x, y
         for i in range(data.N):
