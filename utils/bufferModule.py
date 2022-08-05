@@ -1,19 +1,19 @@
-from ctypes import sizeof
+
 from multiprocessing import Process,Lock,shared_memory,Semaphore
 import os,time
-from venv import create
 import numpy as np
 import cv2
 
-class BufferModules:
+class SegmentBufferModule:
     def __init__(self,names,width,height,channels,dtypes,nbytes,bufferSize):
-        #memory ID   queue + rear/front + isUsed
+        #memory ID   bufferqueue + front/rear + N
+        self.bufferMemorySizes = (bufferSize+1) * nbytes * BufferModule.getshmBuffer(dtypes) + 2 + (bufferSize+1)
         try:
-            self.shm = shared_memory.SharedMemory(name = names, create=True,size = (bufferSize + 1) * nbytes * BufferModule.getshmBuffer(dtypes) + 2  )
+            self.shm = shared_memory.SharedMemory(name = names, create=True,size = self.bufferMemorySizes )
         except FileExistsError:
-            self.shm = shared_memory.SharedMemory(name = names, create=False,size = (bufferSize + 1) * nbytes * BufferModule.getshmBuffer(dtypes) + 2 )
-        #buffer
-            self.memorySmallBuffer = np.ndarray(((bufferSize+1) * height * width * channels * BufferModule.getshmBuffer(dtypes) + 2  ) ,  dtype=np.uint8, buffer=self.shm.buf)
+            self.shm = shared_memory.SharedMemory(name = names, create=False,size = self.bufferMemorySizes)
+        #segmentbuffer
+            self.memorySegmentBuffer = np.ndarray(self.bufferMemorySizes , dtype=np.uint8, buffer=self.shm.buf)
 
         #读者写者问题的三个锁
         self.lockMutex = Lock()
@@ -151,11 +151,7 @@ class BufferModule:
     def unlinkShm(self):
         self.shm.unlink()
 
-    def isEmpty(self):
-        return (self.front[0] == self.rear[0])
 
-    def isFull(self):
-        return (self.front[0] == (self.rear[0] + 1) % (self.bufferSize+1))
     
     def imwrite(self,path,j):
         fronts = self.front[0]

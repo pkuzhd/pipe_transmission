@@ -58,7 +58,7 @@ class SendDataProcess():
         while j < num_test:
             j += 1
             t1 = time.time()
-            imageRGB = self.pipeReceiver.getData().imgs.copy()
+            imageData = self.pipeReceiver.getData().copy()
             #imageRGB = imgs
             t2 = time.time()
           #  imageRGB = [cv2.imread(self.pipePath + "imgs/" + str(i) + "-1.png") for i in range(1,6)]

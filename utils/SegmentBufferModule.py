@@ -47,13 +47,19 @@ class SegmentBufferModule:
         return (self.rear[0] + dataNbytes <= self.bufferSize)
 
     def writeData(self,inputData,lengthofData):
+        c = 0
+        t1 = time.time()
         dataNbytes = lengthofData * SegmentBufferModule.getshmBuffer(inputData.dtype)
+
         while(self.canWrite(dataNbytes) == False):
+            c += 1
             self.lockWriter.acquire()
         self.lockMutex.acquire()
+        t2 = time.time()
         dataBuffer = np.ndarray(lengthofData, dtype=inputData.dtype , buffer = self.memorySegmentBuffer.data,offset = 12 + self.rear[0])
         dataBuffer[:] = inputData[:]
         self.rear[0] = self.rear[0] + dataNbytes
+        t3 = time.time()
         if(self.rear[0] >= self.bufferSize):
             self.completeWriteVariable[0] = True
             self.rear[0] = self.bufferSize
@@ -63,7 +69,8 @@ class SegmentBufferModule:
             self.lockReader.release()
         else:
             self.lockMutex.release()
-        #print("1 ",t2-t1,"2 ",t3-t2,"3 ",t4-t3,"4 ",t5-t4,"5 ",t6-t5)
+        t4 = time.time()
+        #print("1 ",t2-t1,"2 ",t3-t2,"3 ",t4-t3)
 
 
     def readData(self,lengthofData,dtypes):
@@ -87,7 +94,7 @@ class SegmentBufferModule:
         else:
             self.lockMutex.release()
         t4 = time.time()
-        print(t3-t2 ,t4-t1-t3+t2,6220800 / (t4-t1) / 1000 / 1000)
+        print(t3-t2 ,t4-t1-t3+t2,t4-t1,6220800 * 5 * 0.001 * 0.001 / (t4-t1))
         return dataBuffer
 
     def getRear(self):
@@ -118,34 +125,42 @@ class SegmentBufferModule:
             return 4
         elif (dtype == np.bool):
             return 1
+
         else:
             raise NotImplementedError
 
 def send(iter,imgs,SBM):
+    times = 0
     for j in range(iter):
+        nbytes = 0
+        t2 = time.time()
         for i in range(5):
             lins = imgs[i].nbytes//SegmentBufferModule.getshmBuffer(imgs[i].dtype)
+            nbytes += lins
             imgs[i] = imgs[i].reshape(lins)
-            SBM.writeData(imgs[i],(lins))
+        imgInput = np.concatenate(imgs,axis=0)
+        SBM.writeData(imgInput,nbytes)
+        t3 = time.time()
+        times = t3 - t2 + times
+    #print(times/80)
 
 def recv(iter,SBM):
     times = 0
     for j in range(iter):
         b= []
         t2 = time.time()
+        nbytes = 0
         for i in range(5):
-            lins = imgs[i].nbytes//SegmentBufferModule.getshmBuffer(imgs[i].dtype)
-            a = SBM.readData(lins,imgs[i].dtype)
-            b.append(a.reshape(1080,1920,3))
+            nbytes += imgs[i].nbytes//SegmentBufferModule.getshmBuffer(imgs[i].dtype)
+        a = SBM.readData(nbytes,imgs[i].dtype)
+        for i in range(5):
+            b.append(np.ndarray(1080*1920*3,dtype=np.uint8,buffer = a,offset=i * 6220800).reshape(1080,1920,3))
         t3 = time.time()
         times = t3 - t2 + times
-        for k in range(5):
-            cv2.imshow("a",b[k])
-            cv2.waitKey()
-    # print(times/iter,6220800 * 0.001 * 0.001/(times*0.2/iter))
+    print(times/iter,6220800 * 5 * iter * 0.001 * 0.001/(times))
 
 if __name__ == "__main__":
-    SBM = SegmentBufferModule("test2",bufferSize=6220800 * 10)
+    SBM = SegmentBufferModule("test2",bufferSize=6220800 * 5 * 1)
     imgs = []
     imgs = [cv2.imread("/home/pku/view_synthesis/software/multiProcess/datas/imgs/"+str(i+1)+"-1.png") for i in range(5)]
     b= []
