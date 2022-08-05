@@ -22,14 +22,18 @@ device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
 # initialize backgrond, paras and models
 de_rgbd = DepthEstimation_forRGBD(5, bgrs, cams, matting_model_path, fmn_model_path, device)
 
-dirs = './test_dir/'
+
+dirs = '/home/wph/results/pipe/'
+
 if not os.path.exists(dirs):
     os.makedirs(dirs)
 
 for i in range(1):
+    # cur_imgs = np.stack(imgs)
     data = ImageData(5, imgs)
     st = time.time()
-    rgbd_data = de_rgbd.getRGBD(data, crop=True)
+    # rgbd_data = de_rgbd.change_back_RGBD(cur_imgs, crop=True)
+    rgbd_data = de_rgbd.getRGBD(data, crop=True, checkConsistancy=True)
     print(f"total time: {time.time() - st}")
 
     for key in rgbd_data.keys():

@@ -37,20 +37,9 @@ class FastMVSNet_singleframe(nn.Module):
         self.feature_cache = []
 
     def forward(self, imgs_tensor, cams_tensor, img_scales, inter_scales, blending, isGN, isTest=False):
-        # print(f"! forward paras: {img_scales} {inter_scales} {blending} ")
         preds = collections.OrderedDict()
-        # img_list = data_batch["img_list"]
-        # cam_params_list = data_batch["cam_params_list"]
-        img_list = imgs_tensor
-        cam_params_list = cams_tensor
-        # print("! cam para of 5: ", cam_params_list)
-        # print(f"! model img_list shape/type {img_list.shape}{img_list.dtype}")
-        # print(f"! model cam_params_list shape/type {cam_params_list.shape}{cam_params_list.dtype}")
-        # print(f"! img_tensor : {imgs_tensor[0]}")
-        # print(img_list)
-        # for i in range(5):
-        #     io.write_cam_dtu(f"/home/wph/pipe_transmission/depth_estimation/FastMVSNet/cam_para/cam_sf_para{i}.txt", cam_params_list[0][i])
-
+        img_list = imgs_tensor.clone()
+        cam_params_list = cams_tensor.clone()
 
         cam_extrinsic = cam_params_list[:, :, 0, :3, :4].clone()  # (B, V, 3, 4)
         R = cam_extrinsic[:, :, :3, :3]
