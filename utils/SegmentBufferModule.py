@@ -11,19 +11,22 @@ class SegmentBufferModule:
         self.bufferMemorySizes = bufferSize + 2 * 4 + 1 + 4
         self.name = names
 
+        # self.shm = shared_memory.SharedMemory(name = names, create=False,size = self.bufferMemorySizes)
+        # self.shm.unlink()
+        # self.shm = shared_memory.SharedMemory(name = names, create=True,size = self.bufferMemorySizes )
         try:
             self.shm = shared_memory.SharedMemory(name = names, create=True,size = self.bufferMemorySizes )
         except FileExistsError:
             self.shm = shared_memory.SharedMemory(name = names, create=False,size = self.bufferMemorySizes)
             self.shm.unlink()
             self.shm = shared_memory.SharedMemory(name = names, create=True,size = self.bufferMemorySizes )
-            #segmentMemory
+        #     #segmentMemory
         self.memorySegmentBuffer = np.ndarray(self.bufferMemorySizes , dtype=np.uint8, buffer=self.shm.buf)
 
         #读者写者问题的三个锁
         self.lockMutex = Lock()
         self.lockReader = Semaphore(0)
-        self.lockWriter = Semaphore(1)
+        self.lockWriter = Semaphore(0)
 
         #queue top
         self.front = np.ndarray((1) , dtype = np.uint32 ,buffer=self.memorySegmentBuffer.data,offset=4)
@@ -50,19 +53,18 @@ class SegmentBufferModule:
         c = 0
         t1 = time.time()
         dataNbytes = lengthofData * SegmentBufferModule.getshmBuffer(inputData.dtype)
-
         while(self.canWrite(dataNbytes) == False):
             c += 1
+            self.completeWriteVariable[0] = True
             self.lockWriter.acquire()
-        self.lockMutex.acquire()
+        
         t2 = time.time()
         dataBuffer = np.ndarray(lengthofData, dtype=inputData.dtype , buffer = self.memorySegmentBuffer.data,offset = 12 + self.rear[0])
         dataBuffer[:] = inputData[:]
+        self.lockMutex.acquire()
         self.rear[0] = self.rear[0] + dataNbytes
         t3 = time.time()
-        if(self.rear[0] >= self.bufferSize):
-            self.completeWriteVariable[0] = True
-            self.rear[0] = self.bufferSize
+            
         if(self.canReadVariable == False):
             self.canReadVariable[0] = True
             self.lockMutex.release()
@@ -78,23 +80,24 @@ class SegmentBufferModule:
         dataNbytes = lengthofData * SegmentBufferModule.getshmBuffer(dtypes)
         while(self.canRead(dataNbytes) == False):
             self.canReadVariable[0] = False
-            self.lockReader.acquire()
-        self.lockMutex.acquire()
-        t2 = time.time()
-        dataBuffer = np.ndarray(lengthofData, dtype=dtypes, buffer = self.memorySegmentBuffer.data,offset = 12 + self.front[0]).copy()
-        t3 = time.time()
-        self.front[0] = self.front[0] + dataNbytes
-        if(self.front[0] >= self.bufferSize):
-            self.front[0] = 0
             if(self.completeWriteVariable == True):
-                self.rear[0] = 0
+                self.lockMutex.acquire()
+                self.memorySegmentBuffer[12 : (12 + self.rear[0] -self.front[0])] = self.memorySegmentBuffer[ 12 + self.front[0] : 12 + self.rear[0]]
+                self.rear[0] = self.rear[0] - self.front[0]
+                self.front[0] = 0
                 self.completeWriteVariable[0] = False
                 self.lockMutex.release()
                 self.lockWriter.release()
-        else:
-            self.lockMutex.release()
+            self.lockReader.acquire()
+        
+        t2 = time.time()
+        dataBuffer = np.ndarray(lengthofData, dtype=dtypes, buffer = self.memorySegmentBuffer.data,offset = 12 + self.front[0]).copy()
+        t3 = time.time()
+        self.lockMutex.acquire()
+        self.front[0] = self.front[0] + dataNbytes
+        self.lockMutex.release()
         t4 = time.time()
-        print(t3-t2 ,t4-t1-t3+t2,t4-t1,6220800 * 5 * 0.001 * 0.001 / (t4-t1))
+        #print(t3-t2 ,t4-t1-t3+t2,t4-t1,dataNbytes* 0.001 * 0.001 / (t4-t1))
         return dataBuffer
 
     def getRear(self):
@@ -128,7 +131,35 @@ class SegmentBufferModule:
 
         else:
             raise NotImplementedError
-
+        
+    def getdtype(nums):
+        if(nums == 0):
+            return np.uint8
+        elif(nums == 1):
+            return np.uint32
+        elif(nums == 2):
+            return np.float32
+        elif(nums == 3):
+            return bool
+        elif(nums == 4):
+            return np.float64
+        else:
+            raise NotImplementedError
+        
+    def setdtype(dtype):
+        if(dtype == np.uint8):
+             return 0
+        elif (dtype == np.float32):
+            return 2
+        elif (dtype == np.float64):
+            return 4
+        elif (dtype == np.uint32):
+            return 1
+        elif (dtype == bool):
+            return 3
+        else:
+            raise NotImplementedError    
+        
 def send(iter,imgs,SBM):
     times = 0
     for j in range(iter):
