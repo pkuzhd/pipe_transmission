@@ -14,7 +14,7 @@ import torch.nn.functional as F
 
 sys.path.insert(0, os.path.dirname(__file__) + '/..')
 # print(f"! {os.path.dirname(__file__)}")
-sys.path.insert(0, '/home/wph/pipe_transmission/depth_estimation/fastmvsnet/..')
+sys.path.insert(0, './depth_estimation')
 
 from torchvision.transforms.functional import to_tensor
 from fastmvsnet.model_sf import FastMVSNet_singleframe
