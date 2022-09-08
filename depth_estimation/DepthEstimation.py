@@ -12,18 +12,15 @@ import time
 from torchvision import transforms 
 import torch.nn.functional as F
 
-sys.path.insert(0, os.path.dirname(__file__) + '/..')
-# print(f"! {os.path.dirname(__file__)}")
-sys.path.insert(0, '/home/wph/pipe_transmission/depth_estimation/fastmvsnet/..')
-
-from torchvision.transforms.functional import to_tensor
-from fastmvsnet.model_sf import FastMVSNet_singleframe
+sys.path.insert(1, os.path.dirname(__file__)+'/.')
 
 from utils.ImageReceiver import ImageData, ImageReceiver
 from utils.RGBDSender import RGBDData, RGBDSender
-from fastmvsnet.config import load_cfg_from_file
-from data_preparation import build_data_forFast, build_data_forFast_sc, get_ori_cam_paras, adjust_cam_para, write_cam_dtu, scale_camera
-from fastmvsnet.utils.preprocess import  crop_dtu_input, scale_dtu_input
+
+from fastmvsnet.model_sf import FastMVSNet_singleframe
+from data_preparation import adjust_cam_para, scale_camera
+from fastmvsnet.utils.preprocess import  crop_dtu_input
+from tools.propagation import warping_propagation_singleframe
 from picutils import ConsistancyChecker, MyPerspectiveCamera
 
 
@@ -116,7 +113,7 @@ def crop_images(imgs, crops):
 def crop_bgrs_tensor(imgs_tensor, crops, device):
     """
     imgs_tensor: (tensor) V*3*H*W
-    return:(tensor) V*3*crop_h*crop_w
+    return: (tensor) V*3*crop_h*crop_w
     """
     num = imgs_tensor.shape[0]
     width, height = crops[0][0], crops[0][1]
@@ -131,12 +128,13 @@ def crop_bgrs_tensor(imgs_tensor, crops, device):
 def get_masks(pha):
     """
         pha: V*1*H*W
+        return: (list)V*H*W*1
     """
-    pha = pha.permute((0,2,3,1))
+    pha = pha.permute((0,2,3,1))    # V*H*W*1
     pha_np = pha.to(torch.device('cpu')).numpy()
     masks = []
 
-    for i in range(5):
+    for i in range(pha.shape[0]):
         mask = np.uint8(pha_np[i]*255)
         masks.append(mask)
 
@@ -167,18 +165,19 @@ def depth_tensor2numpy(depths_tensor, add_rsize=1):
     for i in range(view_num):
         tmp = depths_tensor[0][i].numpy()
         # tmp = 1.0 / tmp
-        # maxn = np.max(tmp)#1.6###1.6
+        tmp[tmp < 0] = 0.5
+        maxn = np.max(tmp)#1.6###1.6
         # minn = np.min(tmp)#0.7###1.0
         # maxn = 1.6
-        # minn = 0.6
+        # minn = 0.5
         # print('max:{},min:{}'.format(maxn, minn))
         # print(f"delta: {maxn-minn}")
-        # tmp = (tmp - minn) / (maxn - minn) * 255.0
+        # tmp = (tmp - minn) / (maxn - minn) *255.0
         # tmp = tmp.astype('uint8')
         # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
         
         # tmp_ori = tmp_ori * (alpha[i][:,:,0]/255)
-        
+
         depths.append(tmp)
 
     
@@ -235,7 +234,7 @@ class DepthEstimation_forRGBD():
         self.bgrs = np.stack(self.bgrs)
         self.bgrs_tensor = torch.tensor(self.bgrs).permute(0,3,1,2).float().to(device)
         self.bgrs_tensor_m = self.bgrs_tensor/255.0     # V*3*H*W
-        self.cams = cams.copy()
+        self.cams = cams.copy() # intrs：cams[idx][1][:3, :3]; extrs: cams[idx][0] 
 
         # Crop: no model
         
@@ -251,7 +250,7 @@ class DepthEstimation_forRGBD():
         self.FastMVSNet_model.load_state_dict(stat_dict.pop("model"), strict = False)
 
 
-    def getRGBD(self, imgdata, crop=True, checkConsistancy=False):
+    def getRGBD(self, imgdata, crop=True, checkConsistancy=False, propagation=False):
         """
             ref crop + matting + depth(resize=0.5)
         """
@@ -265,10 +264,13 @@ class DepthEstimation_forRGBD():
         # ref_crop = [(768, 896, 850, 170), (768, 896, 780, 111), (768, 896, 680, 170), (768, 896, 550, 180), (768, 896, 491, 159)]
         ref_crop = [(768, 896, 768, 173), (768, 896, 695, 95), (768, 896, 613, 182), (768, 896, 567, 184), (768, 896, 443, 143)]
         ref_crop_tensor = [torch.tensor(crop).to(self.device) for crop in ref_crop]
-        ref_crop_tensor=torch.stack(ref_crop_tensor, 0)
+        ref_crop_tensor = torch.stack(ref_crop_tensor, 0)   # 5*(crop_w, crop_h, x, y)
         
 
-        # Crop to get crops(w,h,x,y), cropped_imgs
+        # Crop to get crops(w,h,x,y)
+        # cropped_imgs: V*3*crop_h*crop_w
+        # cropped_bgrs: V*3*crop_h*crop_w
+
         # crop_st = time.time()
         if crop:
             # self.crops, maxw, maxh = get_crops(self.imgs, self.bgrs, 64/r_scale)
@@ -286,13 +288,13 @@ class DepthEstimation_forRGBD():
         
         # crop_et = time.time()
 
-        # resize cams paras to r_scale for FastMVSNet/Matting
+        # Resize cams paras to r_scale for FastMVSNet/Matting
         cropped_cams = [scale_camera(cropped_cams[i], scale=r_scale) for i in range(5)]
 
         # to tensor to device: cropped_bgrs cropped_imgs
         # matting tensor
         imgs = np.stack(cropped_imgs, axis=0)
-        imgs_tensor = torch.tensor(imgs).permute(0,3,1,2).float().to(self.device)
+        imgs_tensor = torch.tensor(imgs).permute(0,3,1,2).float().to(self.device)   # V*3*H*W
         imgs_tensor_m = (imgs_tensor/255.0)
         
         # bgrs_tensor_m = cropped_bgrs.to(self.device)
@@ -302,11 +304,12 @@ class DepthEstimation_forRGBD():
         if crop:
             cam_params_list = np.stack(cropped_cams, axis=0)
             cam_params_list = torch.tensor(cam_params_list).float().to(self.device)
-            cams_tensor = cam_params_list.unsqueeze(0)  #B*V*2*4*4
+            cams_tensor = cam_params_list.unsqueeze(0)  # B*V*2*4*4
             imgs_tensor_d = F.interpolate(imgs_tensor_m, size=None, scale_factor=(r_scale, r_scale))
-            imgs_tensor_d = imgs_tensor_d.unsqueeze(0)  # B*V*H*W
+            imgs_tensor_d = imgs_tensor_d.unsqueeze(0)  # B*V*3*H*W
             
         else:
+            # 未经过crop需要裁边
             cropped_imgs= [cv2.resize(cropped_imgs[i], None, fx=r_scale, fy=r_scale) for i in range(5)]
             cropped_images, cropped_cams = crop_dtu_input(cropped_imgs, cropped_cams,height=imgs[0].shape[0]*r_scale, width=imgs[0].shape[1]*r_scale, base_image_size=64, depth_image=None)
             img_list = np.stack(cropped_images, axis=0)
@@ -314,10 +317,12 @@ class DepthEstimation_forRGBD():
             img_list = torch.tensor(img_list).permute(0, 3, 1, 2).float()
             cam_params_list = torch.tensor(cam_params_list).float()
 
-            imgs_tensor_d = img_list.unsqueeze(0).to(self.device)
-            cams_tensor = cam_params_list.unsqueeze(0).to(self.device)  # B*V*H*W
+            imgs_tensor_d = img_list.unsqueeze(0).to(self.device)       # B*V*3*H*W
+            cams_tensor = cam_params_list.unsqueeze(0).to(self.device)  # B*V*2*4*4
 
         # trans_et = time.time()
+        
+        # Run model of depths and masks
 
         with torch.no_grad():
             # for i in range(3):
@@ -334,7 +339,6 @@ class DepthEstimation_forRGBD():
 
         # print(alpha_masks.shape) # torch.Size([5, 1, 1080, 1920])
 
-        # run model of depths and masks
         with torch.no_grad():
             # for i in range(3):
             #     preds = self.FastMVSNet_model(imgs_tensor = imgs_tensor_d, cams_tensor = cams_tensor, img_scales=(0.25, 0.5, 1.0), inter_scales=(0.75, 0.15, 0.15), blending=None, isGN=False, isTest=True)
@@ -342,6 +346,7 @@ class DepthEstimation_forRGBD():
             # torch.cuda.synchronize()
             # depth_st = time.time()
             for i in range(times):
+                # preds: dict
                 preds = self.FastMVSNet_model(imgs_tensor = imgs_tensor_d, cams_tensor = cams_tensor, img_scales=(0.25, 0.5, 1.0), inter_scales=(0.75, 0.15, 0.15), blending=None, isGN=False, isTest=True)
             # torch.cuda.synchronize()
             # depth_et = time.time()
@@ -351,33 +356,38 @@ class DepthEstimation_forRGBD():
         # get_depth_et = time.time()
 
         # mask: tensor->numpy
-        masks = get_masks(alpha_masks)
+        masks = get_masks(alpha_masks)  # (list)V*H*W*1
         # mask_t2n_et = time.time()
 
         # Depth Consistancy
         if checkConsistancy:
             # consist_st = time.time()
-            _, _, imgH, imgW = depth_tensor.shape
+            _, _, imgH, imgW = depth_tensor.shape   # B*V*H*W
             # print(cropped_cams[i][1].shape, cropped_cams[i][0].shape)
             consist_cams = [MyPerspectiveCamera(cropped_cams[i][1][:3, :3], cropped_cams[i][0], imgH, imgW, device = self.device) for i in range(self.num_view)]
             refined_depth_tensor, refined_mask_tensor = ConsistancyChecker.getMeanCorrectDepth(
             [consist_cams], depth_tensor, pix_thre=1.0, dep_thre=0.01, view_thre=2, 
-            absoluteDepth=False)
+            absoluteDepth=False)    
+            # refined_depth_tensor: B*V*H*W; refined_mask_tensor: B*V*H*W
             refined_masked_depth_tensor = refined_depth_tensor*refined_mask_tensor
             # consist_et = time.time()
-            
-            # depth_t2n_st = time.time()
-            depths = depth_tensor2numpy(refined_masked_depth_tensor, add_rsize=1/r_scale)
-            # depth_t2n_et = time.time()
-        
+            if propagation:
+                alpha_masks_4prop = F.interpolate(alpha_masks, size=None, scale_factor=(r_scale, r_scale))
+                refined_masked_depth_tensor = refined_masked_depth_tensor*(alpha_masks_4prop.permute(1,0,2,3)[0])
+
+                depths = warping_propagation_singleframe(imgs_tensor_d, refined_masked_depth_tensor, refined_mask_tensor, cams_tensor[0][:,1][:3, :3], cams_tensor[0][:,0])
+                refined_masked_depth_tensor = depths
         else:
-            # depth_t2n_st = time.time()
-            depths = depth_tensor2numpy(depth_tensor, add_rsize=1/r_scale)
-            # depth_t2n_et = time.time()
+            refined_masked_depth_tensor = depth_tensor
+
+        
+        # depth_t2n_st = time.time()
+        depths = depth_tensor2numpy(refined_masked_depth_tensor, add_rsize=1/r_scale)
+        # depth_t2n_et = time.time()
 
         depths = [cv2.resize(depths[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
 
-        et = time.time()
+        # et = time.time()
 
         # print(f"crop: {crop_et - crop_st}")
         # print(f"resize and trans: {trans_et - crop_et}")
@@ -497,6 +507,7 @@ class DepthEstimation_forRGBD():
             depths = depth_tensor2numpy(depth_tensor, add_rsize=1/r_scale)
             # depth_t2n_et = time.time()
 
+        depths = warping_propagation_singleframe(imgs_tensor_d, refined_masked_depth_tensor, refined_mask_tensor, cams_tensor[0][1], cams_tensor[0][0])
         depths = [cv2.resize(depths[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
 
         # get_back_et = time.time()
