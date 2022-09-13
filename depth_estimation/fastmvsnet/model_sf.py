@@ -14,6 +14,76 @@ from fastmvsnet.networks import *
 from fastmvsnet.functions.functions import get_pixel_grids, get_propability_map
 from fastmvsnet.utils.feature_fetcher import FeatureFetcher, FeatureGradFetcher, PointGrad, ProjectUVFetcher
 
+class FastMVSNet_pipe(nn.Module):
+    basePoint_src: torch.Tensor
+    direction_src: torch.Tensor
+    depths: torch.Tensor
+    coarse_img_conv: nn.Module
+
+    def __init__(self, img_base_channels=8, vol_base_channels=8, eps=1e-8) -> None:
+        '''
+        @params are the same as fastmvsnet
+        @param eps: a very small number to avoid division by zero
+        '''
+        super(FastMVSNet_pipe, self).__init__()
+        self.eps = eps
+
+        # build feature extractors
+        self.coarse_img_conv = ImageConv(img_base_channels)
+        self.coarse_vol_conv = VolumeConv(img_base_channels * 4, vol_base_channels)
+        self.propagation_net = PropagationNet(img_base_channels)
+
+    def forward(self, basePoint_src: torch.Tensor, direction_src: torch.Tensor, img_list: torch.Tensor, depths: torch.Tensor, down_sample_scale: int=1):
+        '''
+        @param basePoint_src: [B x V x V x 3 x H x W] 
+        @param direction_src: [B x V x V x 3 x H x W]
+        @param img_list:      [B x V x C x H x W]
+        @param depths:        [B x V x D x H x W]
+        @param down_sample_scale: H_f = (H / 4 / down_sample_scale)
+
+        @returns pred_depth_img: [B x V x H_f x W_f] 
+        '''
+        # downsample image
+        img_list = img_list[:,:,:,::down_sample_scale,::down_sample_scale]
+
+        # build info
+        B, V, C, H, W = img_list.shape
+        D = depths.size(2)
+
+        # extract image feature
+        feature_list: torch.Tensor = self.coarse_img_conv(img_list.view(B * V, C, H, W))['conv2']
+        _, C_f, H_f, W_f = feature_list.shape
+        feature_list = feature_list.view(B, V, C_f, H_f, W_f)
+
+        ratio_step = H // H_f * down_sample_scale
+
+        # calculate warping grid
+        warping_grid = basePoint_src[:,:,:,:,::ratio_step,::ratio_step].unsqueeze(3) + direction_src[:,:,:,:,::ratio_step,::ratio_step].unsqueeze(3) * depths[:,:,:,::ratio_step,::ratio_step].view(B, V, 1, D, 1, H_f, W_f).expand(-1, -1, V, -1, 1, -1, -1)
+        warping_grid = warping_grid[:,:,:,:,:2,:,:] / (warping_grid[:,:,:,:,2:,:,:] + self.eps) - 1. # B x V x 
+        warping_grid = warping_grid.view(B * V * V * D, 2, H_f, W_f).permute(0, 2, 3, 1)
+
+        # do warping
+        feature_list = feature_list.view(B, 1, V, 1, C_f, H_f, W_f).expand(-1, V, -1, D, -1, -1, -1)
+        point_features = torch.nn.functional.grid_sample(
+            feature_list.reshape(B * V * V * D, C_f, H_f, W_f), warping_grid
+        ).view(B, V, V, D, C_f, H_f, W_f) # B x (V-1) x D x C_f x H_f x W_f
+
+        # build variance
+        cost_volume = point_features.var(dim=2, unbiased=False) # B x V x D x C_f x H_f x W_f
+
+        # cnn, get filtered probability map
+        filtered_cost_volume = self.coarse_vol_conv(cost_volume.permute(0, 1, 3, 2, 4, 5).reshape(B * V, C_f, D, H_f, W_f)).squeeze(1).view(B, V, D, H_f, W_f) # B x V x D x H x W
+        probability_volume = F.softmax(-filtered_cost_volume, dim=2)
+
+        # weighted average, get depth prediction img
+        pred_depth_img = depths[:,:,:,::ratio_step,::ratio_step] * probability_volume
+        pred_depth_img = pred_depth_img.sum(dim=2).unsqueeze(2) # B x V x 1 x H x W
+
+        # image guided depth propagation
+        pred_depth_img = self.propagation_net(pred_depth_img.view(B * V, 1, H_f, W_f), img_list.view(B * V, C, H, W)).view(B, V, H_f, W_f)
+
+        # return results
+        return pred_depth_img # B x V x H_f x W_f
 
 class FastMVSNet_singleframe(nn.Module):
     def __init__(self,
@@ -39,13 +109,13 @@ class FastMVSNet_singleframe(nn.Module):
     def forward(self, imgs_tensor, cams_tensor, img_scales, inter_scales, blending, isGN, isTest=False):
         preds = collections.OrderedDict()
         img_list = imgs_tensor.clone()
-        cam_params_list = cams_tensor.clone()
+        cam_params_list = cams_tensor.clone()   # cam_params_list (B, V, 2, 4, 4)
 
-        cam_extrinsic = cam_params_list[:, :, 0, :3, :4].clone()  # (B, V, 3, 4)
-        R = cam_extrinsic[:, :, :3, :3]
+        cam_extrinsic = cam_params_list[:, :, 0, :3, :4].clone()  # cam_extrinsic: (B, V, 3, 4)
+        R = cam_extrinsic[:, :, :3, :3] # R(B, V, 3, 3)
         t = cam_extrinsic[:, :, :3, 3].unsqueeze(-1)
-        R_inv = torch.inverse(R)
-        cam_intrinsic = cam_params_list[:, :, 1, :3, :3].clone()
+        R_inv = torch.inverse(R)    # R_inv(B, V, 3, 3)
+        cam_intrinsic = cam_params_list[:, :, 1, :3, :3].clone()    # cam_intrinsic: (B, V, 3, 3)
 
         if isTest:
             cam_intrinsic[:, :, :2, :3] = cam_intrinsic[:, :, :2, :3] / 4.0
@@ -61,15 +131,6 @@ class FastMVSNet_singleframe(nn.Module):
 
         for i in range(num_view):
             curr_img = img_list[:, i, :, :, :]
-            # img_tmp = curr_img[0].permute([1,2,0]).cpu().numpy()
-            # minn = np.min(img_tmp)
-            # maxn = np.max(img_tmp)
-            # print('min: {} and max: {}'.format(minn, maxn))
-            # img_tmp = (img_tmp - minn) / (maxn - minn)
-            # # img_tmp = img_tmp * 255.0
-            # # img_tmp = img_tmp.astype('uint8')
-            # cv2.imshow('color', img_tmp)
-            # cv2.waitKey()
             curr_feature_map = self.coarse_img_conv(curr_img)["conv2"]
             # torch.save(self.coarse_img_conv.state_dict(), 'img_conv_param.pkl')
             coarse_feature_maps.append(curr_feature_map)
@@ -104,7 +165,6 @@ class FastMVSNet_singleframe(nn.Module):
                 .view(batch_size, 3, -1)  # (B, 3, D*FH*FW)
 
             preds["world_points"] = world_points
-            # print("! world_point: ", world_points)
 
             num_world_points = world_points.size(-1)
             assert num_world_points == feature_height * feature_width * num_depth / 4
@@ -112,8 +172,8 @@ class FastMVSNet_singleframe(nn.Module):
             point_features = self.feature_fetcher(feature_list, world_points, cam_intrinsic, cam_extrinsic)
             ref_feature = coarse_feature_maps[view]
             #print("before ref feature:", ref_feature.size())
-            ref_feature = ref_feature[:, :, ::2,::2].contiguous()
-            #print("after ref feature:", ref_feature.size())
+            ref_feature = ref_feature[:, :, ::2,::2].contiguous()   #ref_feature: [1, 32, 56, 48]
+            # print("after ref feature:", ref_feature.size())
             ref_feature = ref_feature.unsqueeze(2).expand(-1, -1, num_depth, -1, -1)\
                             .contiguous().view(batch_size,feature_channels,-1)
             point_features[:, view, :, :] = ref_feature
@@ -191,9 +251,30 @@ class FastMVSNet_singleframe(nn.Module):
 
                     curr_grident = (point_features_r[:, 1:, ...] - point_features_l[:, 1:, ...]) / (2 * delta)
 
+                    # ref_view
+                    # delta = 0.01
+                    # interval_depth_map_l = depth_map - delta
+                    # interval_depth_map_r = depth_map + delta
+                    # cam_points_l = (uv * interval_depth_map_l.view(batch_size, 1, 1, -1))
+                    # cam_points_r = (uv * interval_depth_map_r.view(batch_size, 1, 1, -1))
+                    # world_points_l = torch.matmul(R_inv[:, ref_view:ref_view+1, :, :], cam_points_l - t[:, ref_view:ref_view+1, :, :]).transpose(1, 2) \
+                    #     .contiguous().view(batch_size, 3, -1)  # (B, 3, D*FH*FW)
+                    # world_points_r = torch.matmul(R_inv[:, ref_view:ref_view+1, :, :], cam_points_r - t[:, ref_view:ref_view+1, :, :]).transpose(1, 2) \
+                    #     .contiguous().view(batch_size, 3, -1)  # (B, 3, D*FH*FW)
+
+                    # point_features_l = \
+                    #     self.feature_fetcher(all_features, world_points_l, cam_intrinsic, cam_extrinsic)
+                    # point_features_r = \
+                    #     self.feature_fetcher(all_features, world_points_r, cam_intrinsic, cam_extrinsic)
+
+                    # idx = [i for i in range(num_view)]
+                    # idx.remove(ref_view)
+                    # curr_grident = (point_features_r[:, idx, ...] - point_features_l[:, idx, ...]) / (2 * delta)
+                    # ref_view
+
                     return curr_grident.unsqueeze(4)
 
-                def gn_update(estimated_depth_map, interval, image_scale, it, blending):
+                def gn_update(ref_view, estimated_depth_map, interval, image_scale, it, blending):
                     nonlocal chosen_conv
                     # print(estimated_depth_map.size(), image_scale)
                     # torch.cuda.synchronize()
@@ -221,7 +302,7 @@ class FastMVSNet_singleframe(nn.Module):
                     else:
                         cam_intrinsic[:, :, :2, :3] *= (4 * image_scale)
 
-                    ref_cam_intrinsic = cam_intrinsic[:, 0, :, :].clone()
+                    ref_cam_intrinsic = cam_intrinsic[:, ref_view, :, :].clone()
                     feature_map_indices_grid = get_pixel_grids(flow_height, flow_width) \
                         .view(1, 1, 3, -1).expand(batch_size, 1, 3, -1).to(img_list.device)
 
@@ -230,7 +311,7 @@ class FastMVSNet_singleframe(nn.Module):
 
                     interval_depth_map = estimated_depth_map
                     cam_points = (uv * interval_depth_map.view(batch_size, 1, 1, -1))
-                    world_points = torch.matmul(R_inv[:, 0:1, :, :], cam_points - t[:, 0:1, :, :]).transpose(1, 2) \
+                    world_points = torch.matmul(R_inv[:, ref_view:ref_view+1, :, :], cam_points - t[:, ref_view:ref_view+1, :, :]).transpose(1, 2) \
                         .contiguous().view(batch_size, 3, -1)  # (B, 3, D*FH*FW)
                     # torch.cuda.synchronize()
                     # timer_refine.showTime('mapping')
@@ -238,7 +319,7 @@ class FastMVSNet_singleframe(nn.Module):
                     grad_pts = self.point_grad_fetcher(world_points, cam_intrinsic, cam_extrinsic)
 
                     R_tar_ref = torch.bmm(R.view(batch_size * num_view, 3, 3),
-                                        R_inv[:, 0:1, :, :].repeat(1, num_view, 1, 1).view(batch_size * num_view, 3, 3))
+                                        R_inv[:, ref_view:ref_view+1, :, :].repeat(1, num_view, 1, 1).view(batch_size * num_view, 3, 3))    # Ri*R_inv
 
                     R_tar_ref = R_tar_ref.view(batch_size, num_view, 3, 3)
                     d_pts_d_d = uv.unsqueeze(-1).permute(0, 1, 3, 2, 4).contiguous().repeat(1, num_view, 1, 1, 1)
@@ -274,14 +355,21 @@ class FastMVSNet_singleframe(nn.Module):
                     # timer_refine.showTime('warping and d_uv')
                     c = all_features.size(2)
                     d_uv_d_d_tmp = d_uv_d_d.repeat(1, 1, c, 1, 1, 1)
-                    # print("d_uv_d_d tmp size:", d_uv_d_d_tmp.size())
+                    # print("d_uv_d_d tmp size:", d_uv_d_d_tmp.size())    # [1, 5, 48, 43008(crop_H*crop_W*r_scale/4), 2, 1]
+                    # print("point_features_grad:", point_features_grad.size()) # [1, 5, 48, 43008(crop_H*crop_W*r_scale/4), 2]
                     J = point_features_grad.view(-1, 1, 2) @ d_uv_d_d_tmp.view(-1, 2, 1)
-                    print(point_features_grad.view(-1, 1, 2).size(), d_uv_d_d_tmp.view(-1, 2, 1).size())
-                    J = J.view(batch_size, num_view, c, -1, 1)[:, 1:, ...].contiguous()
+                    # print(point_features_grad.view(-1, 1, 2).size(), d_uv_d_d_tmp.view(-1, 2, 1).size())    # [10321920, 1, 2] [10321920, 2, 1]
+                    # print("J:", J.view(batch_size, num_view, c, -1, 1).size())  # [1, 5, 48, 43008, 1]
+                    
+                    idx = [i for i in range(num_view)]
+                    idx.remove(ref_view)
+                    J = J.view(batch_size, num_view, c, -1, 1)[:, idx, ...].contiguous()    # [1, 4, 48, 10752, 1]
+                    # J = J.view(batch_size, num_view, c, -1, 1)[:, 1:, ...].contiguous()
+                    
                     ## 48*4 -> 48*4, blending
                     # blending = blending.view(1, 4, 1, -1).unsqueeze(4)
                     # J = J * blending
-                    J = J.permute(0, 3, 1, 2, 4).contiguous().view(-1, c * (num_view - 1), 1)
+                    J = J.permute(0, 3, 1, 2, 4).contiguous().view(-1, c * (num_view - 1), 1)   # [10752, 192, 1]
                     ## 48*4 -> 48 by mean
                     # J = torch.mean(J.permute(0, 3, 2, 1, 4).contiguous(), dim=3).squeeze(3).permute(1, 2, 0)
                     ## 48*4 -> 48*4, but scale to 0.25
@@ -295,7 +383,7 @@ class FastMVSNet_singleframe(nn.Module):
                     # torch.cuda.synchronize()
                     # timer_refine.showTime('compute jacobi')
 
-                    resid = point_features[:, 1:, ...] - point_features[:, 0:1, ...]
+                    resid = point_features[:, idx, ...] - point_features[:, ref_view:ref_view+1, ...]
                     first_resid = torch.sum(torch.abs(resid), dim=(1, 2))
                     # print(resid.size())
                     ## 48*4 -> 48*4, blending
@@ -335,13 +423,13 @@ class FastMVSNet_singleframe(nn.Module):
                     # check update results
                     interval_depth_map = flow_result
                     cam_points = (uv * interval_depth_map.view(batch_size, 1, 1, -1))
-                    world_points = torch.matmul(R_inv[:, 0:1, :, :], cam_points - t[:, 0:1, :, :]).transpose(1, 2) \
+                    world_points = torch.matmul(R_inv[:, ref_view:ref_view+1, :, :], cam_points - t[:, ref_view:ref_view+1, :, :]).transpose(1, 2) \
                         .contiguous().view(batch_size, 3, -1)  # (B, 3, D*FH*FW)
 
                     point_features = \
                         self.feature_fetcher(all_features, world_points, cam_intrinsic, cam_extrinsic)
 
-                    resid = point_features[:, 1:, ...] - point_features[:, 0:1, ...]
+                    resid = point_features[:, ref_view:ref_view+1, ...] - point_features[:, ref_view:ref_view+1, ...]
                     second_resid = torch.sum(torch.abs(resid), dim=(1, 2))
                     # print(first_resid.size(), second_resid.size())
                     # torch.cuda.synchronize()
@@ -356,12 +444,13 @@ class FastMVSNet_singleframe(nn.Module):
                     return flow_result
 
                 for i, (img_scale, inter_scale) in enumerate(zip(img_scales, inter_scales)):
+                    print(f"{view}")
                     if isTest:
                         pred_depth_img = torch.detach(pred_depth_img)
                         print("update: {}".format(i))
                     torch.cuda.synchronize()
                     begin_time = time.time()
-                    flow = gn_update(pred_depth_img, inter_scale* depth_interval, img_scale, i, blending)
+                    flow = gn_update(view, pred_depth_img, inter_scale* depth_interval, img_scale, i, blending)
                     torch.cuda.synchronize()
                     print('scale:{}, time:{}\n'.format(img_scale, time.time() - begin_time))
                     preds["flow{}".format(i+1)] = flow
