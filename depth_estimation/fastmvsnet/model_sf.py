@@ -444,15 +444,15 @@ class FastMVSNet_singleframe(nn.Module):
                     return flow_result
 
                 for i, (img_scale, inter_scale) in enumerate(zip(img_scales, inter_scales)):
-                    print(f"{view}")
+                    # print(f"{view}")
                     if isTest:
                         pred_depth_img = torch.detach(pred_depth_img)
-                        print("update: {}".format(i))
-                    torch.cuda.synchronize()
-                    begin_time = time.time()
+                        # print("update: {}".format(i))
+                    # torch.cuda.synchronize()
+                    # begin_time = time.time()
                     flow = gn_update(view, pred_depth_img, inter_scale* depth_interval, img_scale, i, blending)
-                    torch.cuda.synchronize()
-                    print('scale:{}, time:{}\n'.format(img_scale, time.time() - begin_time))
+                    # torch.cuda.synchronize()
+                    # print('scale:{}, time:{}\n'.format(img_scale, time.time() - begin_time))
                     preds["flow{}".format(i+1)] = flow
                     pred_depth_img = flow
 

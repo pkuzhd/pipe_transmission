@@ -166,13 +166,13 @@ def depth_tensor2numpy(depths_tensor, add_rsize=1):
         tmp = depths_tensor[0][i].numpy()
         # tmp = 1.0 / tmp
         # tmp[tmp < 0] = 0.5
-        maxn = np.max(tmp)#1.6###1.6
-        minn = np.min(tmp)#0.7###1.0
+        # maxn = np.max(tmp)#1.6###1.6
+        # minn = np.min(tmp)#0.7###1.0
         # maxn = 1.6
         # minn = 0.5
         # print('max:{},min:{}'.format(maxn, minn))
         # print(f"delta: {maxn-minn}")
-        tmp = (tmp - minn) / (maxn - minn) *255.0
+        # tmp = (tmp - minn) / (maxn - minn) *255.0
         # tmp = tmp*255.0
         # tmp = tmp.astype('uint8')
         # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
