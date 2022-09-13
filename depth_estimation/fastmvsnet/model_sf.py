@@ -574,21 +574,3 @@ class PointMVSNetMetric(nn.Module):
         return metrics
 
 
-def build_pointmvsnet(cfg):
-    net = FastMVSNet(
-        img_base_channels=cfg.MODEL.IMG_BASE_CHANNELS,
-        vol_base_channels=cfg.MODEL.VOL_BASE_CHANNELS,
-        flow_channels=cfg.MODEL.FLOW_CHANNELS,
-    )
-
-    loss_fn = PointMVSNetLoss(
-        valid_threshold=cfg.MODEL.VALID_THRESHOLD,
-    )
-
-    metric_fn = PointMVSNetMetric(
-        valid_threshold=cfg.MODEL.VALID_THRESHOLD,
-    )
-
-    return net, loss_fn, metric_fn
-
-

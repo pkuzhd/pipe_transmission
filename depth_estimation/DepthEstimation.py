@@ -166,13 +166,13 @@ def depth_tensor2numpy(depths_tensor, add_rsize=1):
         tmp = depths_tensor[0][i].numpy()
         # tmp = 1.0 / tmp
         # tmp[tmp < 0] = 0.5
-        # maxn = np.max(tmp)#1.6###1.6
-        # minn = np.min(tmp)#0.7###1.0
+        maxn = np.max(tmp)#1.6###1.6
+        minn = np.min(tmp)#0.7###1.0
         # maxn = 1.6
         # minn = 0.5
         # print('max:{},min:{}'.format(maxn, minn))
         # print(f"delta: {maxn-minn}")
-        # tmp = (tmp - minn) / (maxn - minn) *255.0
+        tmp = (tmp - minn) / (maxn - minn) *255.0
         # tmp = tmp*255.0
         # tmp = tmp.astype('uint8')
         # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
@@ -251,7 +251,7 @@ class DepthEstimation_forRGBD():
         self.FastMVSNet_model.load_state_dict(stat_dict.pop("model"), strict = False)
 
 
-    def getRGBD(self, imgdata, crop=True, checkConsistancy=False, propagation=False):
+    def getRGBD(self, imgdata, crop=True, isGN=False, checkConsistancy=False, propagation=False):
         """
             ref crop + matting + depth(resize=0.5)
         """
@@ -348,7 +348,7 @@ class DepthEstimation_forRGBD():
             # depth_st = time.time()
             for i in range(times):
                 # preds: dict
-                preds = self.FastMVSNet_model(imgs_tensor = imgs_tensor_d, cams_tensor = cams_tensor, img_scales=(0.25, 0.5, 1.0), inter_scales=(0.75, 0.15, 0.15), blending=None, isGN=False, isTest=True)
+                preds = self.FastMVSNet_model(imgs_tensor = imgs_tensor_d, cams_tensor = cams_tensor, img_scales=(0.25, 0.5, 1.0), inter_scales=(0.75, 0.15, 0.15), blending=None, isGN=isGN, isTest=True)
             # torch.cuda.synchronize()
             # depth_et = time.time()
         
@@ -476,7 +476,7 @@ class DepthEstimation_forRGBD():
             # depth_st = time.time()
             for i in range(times):
                 # preds: dict
-                preds = self.FastMVSNet_model(imgs_tensor = imgs_tensor_d, cams_tensor = cams_tensor, img_scales=(0.25, 0.5, 1.0), inter_scales=(0.75, 0.15, 0.15), blending=None, isGN=False, isTest=True)
+                preds = self.FastMVSNet_model(imgs_tensor = imgs_tensor_d, cams_tensor = cams_tensor, img_scales=(0.25, 0.5, 1.0), inter_scales=(0.75, 0.15, 0.15), blending=None, isGN=True, isTest=True)
             # torch.cuda.synchronize()
             # depth_et = time.time()
         
