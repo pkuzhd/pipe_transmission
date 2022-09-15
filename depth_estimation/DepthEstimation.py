@@ -166,13 +166,13 @@ def depth_tensor2numpy(depths_tensor, add_rsize=1):
         tmp = depths_tensor[0][i].numpy()
         # tmp = 1.0 / tmp
         # tmp[tmp < 0] = 0.5
-        # maxn = np.max(tmp)#1.6###1.6
-        # minn = np.min(tmp)#0.7###1.0
+        maxn = np.max(tmp)#1.6###1.6
+        minn = np.min(tmp)#0.7###1.0
         # maxn = 1.6
         # minn = 0.5
         # print('max:{},min:{}'.format(maxn, minn))
         # print(f"delta: {maxn-minn}")
-        # tmp = (tmp - minn) / (maxn - minn) *255.0
+        tmp = (tmp - minn) / (maxn - minn) *255.0
         # tmp = tmp*255.0
         # tmp = tmp.astype('uint8')
         # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
@@ -251,7 +251,7 @@ class DepthEstimation_forRGBD():
         self.FastMVSNet_model.load_state_dict(stat_dict.pop("model"), strict = False)
 
 
-    def getRGBD(self, imgdata, crop=True, isGN=False, checkConsistancy=False, propagation=False):
+    def getRGBD(self, imgdata, crop=True, isGN=False, checkConsistancy=False, propagation=False, checkSecondConsistancy=False):
         """
             ref crop + matting + depth(resize=0.5)
         """
@@ -272,9 +272,10 @@ class DepthEstimation_forRGBD():
         # cropped_imgs: V*3*crop_h*crop_w
         # cropped_bgrs: V*3*crop_h*crop_w
 
+        # Get crop parameters and crop imgs/bgrs/cams
         # crop_st = time.time()
         if crop:
-            # self.crops, maxw, maxh = get_crops(self.imgs, self.bgrs, 64/r_scale)
+            # crops, maxw, maxh = get_crops(self.imgs, self.bgrs, 64/r_scale)  # calculate crops
             crops = ref_crop
             cropped_imgs = crop_images(ori_imgs, crops)
             # Q: self.bgrs_tensor_m:cuda, crops:cpu->cropped_bgrs:cpu 
@@ -292,12 +293,13 @@ class DepthEstimation_forRGBD():
         # Resize cams paras to r_scale for FastMVSNet/Matting
         cropped_cams = [scale_camera(cropped_cams[i], scale=r_scale) for i in range(5)]
 
-        # to tensor to device: cropped_bgrs cropped_imgs
+        # Imgs to tensor to device: cropped_bgrs cropped_imgs
         # matting tensor
         imgs = np.stack(cropped_imgs, axis=0)
         imgs_tensor = torch.tensor(imgs).permute(0,3,1,2).float().to(self.device)   # V*3*H*W
         imgs_tensor_m = (imgs_tensor/255.0)
         
+        # If backgrounds keep unchanged, get from class directly(no need to put to device)
         # bgrs_tensor_m = cropped_bgrs.to(self.device)
         bgrs_tensor_m = cropped_bgrs
 
@@ -324,7 +326,6 @@ class DepthEstimation_forRGBD():
         # trans_et = time.time()
         
         # Run model of depths and masks
-
         with torch.no_grad():
             # for i in range(3):
             #     alpha_masks = self.Matting_model(imgs_tensor_m, bgrs_tensor_m)[0]
@@ -353,7 +354,7 @@ class DepthEstimation_forRGBD():
             # depth_et = time.time()
         
         # depth_dict_st = time.time()
-        depth_tensor = get_depth_init_tensor(preds, "coarse_depth_map") # B*V*H*W
+        depth_tensor = get_depth_init_tensor(preds, "coarse_depth_map") # dict -> B*V*H*W
         # get_depth_et = time.time()
 
         # mask: tensor->numpy
@@ -363,21 +364,43 @@ class DepthEstimation_forRGBD():
         # Depth Consistancy
         if checkConsistancy:
             # consist_st = time.time()
+            
             _, _, imgH, imgW = depth_tensor.shape   # B*V*H*W
+            # print(f"imgH:{imgH}, imgW: {imgW}")
             # print(cropped_cams[i][1].shape, cropped_cams[i][0].shape)
             consist_cams = [MyPerspectiveCamera(cropped_cams[i][1][:3, :3], cropped_cams[i][0], imgH, imgW, device = self.device) for i in range(self.num_view)]
             refined_depth_tensor, refined_mask_tensor = ConsistancyChecker.getMeanCorrectDepth(
-            [consist_cams], depth_tensor, pix_thre=1.0, dep_thre=0.01, view_thre=2, 
+            [consist_cams], depth_tensor, pix_thre=1.0, dep_thre=0.01, view_thre=3, 
             absoluteDepth=False)    
             # refined_depth_tensor: B*V*H*W; refined_mask_tensor: B*V*H*W
             refined_masked_depth_tensor = refined_depth_tensor*refined_mask_tensor
+            
             # consist_et = time.time()
+            
             if propagation:
+                # propagation_st = time.time()
                 alpha_masks_4prop = F.interpolate(alpha_masks, size=None, scale_factor=(r_scale, r_scale))
                 refined_masked_depth_tensor = refined_masked_depth_tensor*(alpha_masks_4prop.permute(1,0,2,3)[0])
 
                 depths = warping_propagation_singleframe(imgs_tensor_d, refined_masked_depth_tensor, refined_mask_tensor, cams_tensor[0][:,1][:3, :3], cams_tensor[0][:,0])
                 refined_masked_depth_tensor = depths
+
+                # propagation_et = time.time()
+
+                # check 2nd Consistancy to find fault(block)
+                if checkSecondConsistancy:
+                    # consist_2_st = time.time()
+
+                    # _, _, imgH, imgW = refined_masked_depth_tensor.shape   # B*V*H*W
+                    # print(f"imgH:{imgH}, imgW: {imgW}")
+                    # consist_cams = [MyPerspectiveCamera(cropped_cams[i][1][:3, :3], cropped_cams[i][0], imgH, imgW, device = self.device) for i in range(self.num_view)]
+                    refined_depth_tensor_2, refined_mask_tensor_2 = ConsistancyChecker.getMeanCorrectDepth(
+                    [consist_cams], refined_masked_depth_tensor, pix_thre=1.0, dep_thre=0.1, view_thre=2, 
+                    absoluteDepth=False)    
+                    # refined_depth_tensor: B*V*H*W; refined_mask_tensor: B*V*H*W
+                    refined_masked_depth_tensor = refined_depth_tensor_2*refined_mask_tensor_2
+
+                    # consist_2_et = time.time()
         else:
             refined_masked_depth_tensor = depth_tensor
 
@@ -391,13 +414,16 @@ class DepthEstimation_forRGBD():
         # et = time.time()
 
         # print(f"crop: {crop_et - crop_st}")
-        # print(f"resize and trans: {trans_et - crop_et}")
+        # print(f"resize and trans to device: {trans_et - crop_et}")
         # print(f"matting: {(mattint_et - matting_st)/times}")
         # print(f"depth_estimation: {(depth_et - depth_st)/times}")
-        # print(f"select depth: {get_depth_et - depth_dict_st}")
-        # print(f"trans mask: {mask_t2n_et - get_depth_et}")
+        # print(f"select depth from dict and turn to tensor: {get_depth_et - depth_dict_st}")
+        # print(f"mask t2n: {mask_t2n_et - get_depth_et}")
         # if checkConsistancy: print(f"check consistacy: {consist_et - consist_st}")
-        # print(f"trans depth: {depth_t2n_et - depth_t2n_st}")
+        # if propagation: print(f"propagation: {propagation_et - propagation_st}")
+        # if checkSecondConsistancy:
+        #     print(f"check 2nd consistancy: {consist_2_et - consist_2_st}")
+        # print(f"depth t2n: {depth_t2n_et - depth_t2n_st}")
         # print(f"resize depth: {et - depth_t2n_et}")
 
 
