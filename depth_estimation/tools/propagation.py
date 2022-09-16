@@ -102,7 +102,7 @@ def warping_propagation(rgbd_raw = 'rgbd/rgbd_lab.npy', rgbd_checked = 'rgbd/rgb
         np.save(output, ans)
 
 
-def warping_propagation_singleframe(imgs_tensor, checked_depth_tensor, checked_masks_tensor, intrs_tensor, extrs_tensor, output = 'rgbd/rgbd_lab_propagated.npy', maxd = 1.6, mind = 0.5, pfm_path = None):
+def warping_propagation_singleframe(imgs_tensor, checked_depth_tensor, checked_masks_tensor, intrs_tensor, extrs_tensor, output = 'rgbd/rgbd_lab_propagated.npy', maxd = 1.6, mind = 0.5, pfm_path = None, device='cuda:0'):
     sigma_i = 20
     sigma_s = 25
 
@@ -123,7 +123,7 @@ def warping_propagation_singleframe(imgs_tensor, checked_depth_tensor, checked_m
         guide = rgb2yCbCr(imgs[idx]).type(torch.uint8)
         # if pfm_path is None:
         #     vis(imgs[idx].clone(), title='rgb', norm=False, cuda=True)
-        distance_filter = ISB_Filter(1, [W, H], 'cuda:0', '')
+        distance_filter = ISB_Filter(1, [W, H], device, '')
 
         distance_map = depths[idx]
         mask_map = masks[idx]
