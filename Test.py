@@ -22,8 +22,10 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 # initialize backgrond, paras and models
 de_rgbd = DepthEstimation_forRGBD(5, bgrs, cams, matting_model_path, fmn_model_path, device)
 
-
-dirs = '/home/wph/results/consistancy/noGN_propa_cons_d1e1/'
+# GN CONSIST PROPAGA CONSIST
+dirs = '/data/pipe_depth/wph/test_/'
+WRITE = 0
+BYTES = 0
 
 if not os.path.exists(dirs):
     print("create new file")
@@ -45,20 +47,31 @@ for i in range(1):
         if key == 'imgs':
             i = 0
             for img in rgbd_data[key]:
-                # cv2.imwrite(dirs + f"imgs_{i}.jpg", (img))
+                if WRITE: 
+                    cv2.imwrite(dirs + f"imgs_{i}.jpg", (img))
                 i += 1
+
         elif key == 'depths':
             i = 0
             for depth in rgbd_data[key]:
-                cv2.imwrite(dirs + f"depth_{i}.jpg", depth)
+                if WRITE:
+                    cv2.imwrite(dirs + f"depth_{i}.jpg", depth)
+                if BYTES:
+                    with open(f"/data/pipe_depth/0920/depth_{i}", 'wb') as f:
+                        f.write(depth.tobytes())
                 i += 1
-                # with open(f"/data/pipe_depth/1080p_byte/depth_{i}", 'wb') as f:
-                    # f.write(depth.tobytes())
+
         elif key == 'masks':
             i = 0
             for mask in rgbd_data[key]:
-                # cv2.imwrite(dirs + f"mask_{i}.jpg", mask)
+                if WRITE:
+                    cv2.imwrite(dirs + f"mask_{i}.jpg", mask)
+                if BYTES:
+                    with open(f"/data/pipe_depth/0920/mask_{i}", 'wb') as f:
+                        f.write(mask.tobytes())
                 i += 1
+
         elif key == 'crops':
             for crop in rgbd_data[key]:
-                print(f"rgbd: crop {crop}")
+                if WRITE:
+                    print(f"rgbd: crop {crop}")

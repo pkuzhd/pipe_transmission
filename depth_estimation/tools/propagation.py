@@ -102,7 +102,7 @@ def warping_propagation(rgbd_raw = 'rgbd/rgbd_lab.npy', rgbd_checked = 'rgbd/rgb
         np.save(output, ans)
 
 
-def warping_propagation_singleframe(imgs_tensor, checked_depth_tensor, checked_masks_tensor, intrs_tensor, extrs_tensor, output = 'rgbd/rgbd_lab_propagated.npy', maxd = 1.6, mind = 0.5, pfm_path = None, device='cuda:0'):
+def warping_propagation_singleframe(imgs_tensor, checked_depth_tensor, checked_masks_tensor,  maxd = 1.6, mind = 0.5, pfm_path = None, device='cuda:0'):
     sigma_i = 20
     sigma_s = 25
 
@@ -113,8 +113,7 @@ def warping_propagation_singleframe(imgs_tensor, checked_depth_tensor, checked_m
     imgs = (imgs.permute((0,2,3,1)))*255.0
     depths = checked_depth_tensor[0]
     masks = checked_masks_tensor[0]
-    intrs = intrs_tensor
-    extrs = extrs_tensor
+
 
     ans = torch.ones_like(depths)
 
