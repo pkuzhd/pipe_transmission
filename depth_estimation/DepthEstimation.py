@@ -115,9 +115,9 @@ def crop_imgs_tensor(imgs_tensor, crops, device):
     imgs_tensor: (tensor) V*3*H*W
     return: (tensor) V*3*crop_h*crop_w
     """
-    num = imgs_tensor.shape[0]
+    num, C, H, W = imgs_tensor.shape
     width, height = crops[0][0], crops[0][1]
-    cropped_imgs = torch.ones((num, 3, height, width)).to(device)
+    cropped_imgs = torch.ones((num, C, height, width)).to(device)
     
     for i in range(num):
         w, h, x, y = crops[i][0], crops[i][1], crops[i][2], crops[i][3]
@@ -171,7 +171,7 @@ def depth_tensor2numpy(depths_tensor, add_rsize=1):
     depths_tensor = depths_tensor.to(torch.device('cpu'))
     # depths_tensor = F.interpolate(depths_tensor, size=None, scale_factor=(add_rsize, add_rsize))
     for i in range(view_num):
-        tmp = depths_tensor[0][i].numpy()
+        tmp = depths_tensor[0][i].detach().numpy()
         # tmp[tmp==0] = tmp[tmp>0].max()
 
         # tmp = 1.0 / tmp
@@ -208,13 +208,18 @@ def get_crops_from_mask(mask_tensor, base_size):
     
     for i in range(num):
         mask = mask_tensor[i, 0]    # H, W
-        # print(mask.shape)
         idx = torch.nonzero(mask)
-        # print(idx.shape)
+
+        if idx.shape[0] == 0:
+            maxw, maxh = width, height
+            for i in range(num):
+                rects.append([width, height, 0, 0])
+            break
+
         min_y, min_x = torch.min(idx[ :, 0]), torch.min(idx[ :, 1])
         max_y, max_x = torch.max(idx[ :, 0]), torch.max(idx[ :, 1])
-        max_x, max_y = int(min(width, max_x)), int(min(height, max_y))
-        min_x, min_y = int(max(min_x, 0)), int(max(min_y, 0))
+        max_x, max_y = min(width, max_x), min(height, max_y)
+        min_x, min_y = max(min_x, 0), max(min_y, 0)
         w = max_x - min_x
         h = max_y - min_y
         if w > maxw: maxw = w
@@ -234,7 +239,7 @@ def get_crops_from_mask(mask_tensor, base_size):
         if newx < 0: newx = 0
         if newy < 0: newy = 0
         # print((maxw, maxh, newx, newy))
-        crops.append((maxw, maxh, newx, newy))
+        crops.append((int(maxw), int(maxh), int(newx), int(newy)))
 
     return crops
 
@@ -252,7 +257,8 @@ class DepthEstimation_forRGBD():
         self.bgrs_tensor_01 = self.bgrs_tensor/255.0     # V*3*H*W
         self.cams = cams.copy() # intrs：cams[idx][1][:3, :3]; extrs: cams[idx][0] 
 
-        self.ref_crops = []
+        self.ref_crops = [(768, 896, 768, 173), (768, 896, 695, 95), (768, 896, 613, 182), (768, 896, 567, 184), (768, 896, 443, 143)]
+
 
         # Crop: no model
         
@@ -494,7 +500,7 @@ class DepthEstimation_forRGBD():
             input: ImageData
             return: (dict)
                 "num_view": num_view    int
-                "imgs":     src_imgs    H * W * 3 (uint8)
+                "imgs":     src_imgs    crop_H * crop_W * 3 (uint8)
                 "depths":   depths      crop_H * crop_W (float32)
                 "masks":    masks       crop_H * crop_W * 1 (uint8)
                 "crops":    crops       tuple   (crop_W, crop_H, start_x, start_y)
@@ -503,12 +509,7 @@ class DepthEstimation_forRGBD():
         r_scale = 0.5
 
         src_imgs = imgdata.imgs.copy()
-        cams = [self.cams[i].copy() for i in range(self.num_view)]
-
-        ref_crop = [(768, 896, 768, 173), (768, 896, 695, 95), (768, 896, 613, 182), (768, 896, 567, 184), (768, 896, 443, 143)]
-        ref_crop_tensor = [torch.tensor(crop).to(self.device) for crop in ref_crop]
-        ref_crop_tensor = torch.stack(ref_crop_tensor, 0)   # 5*(crop_w, crop_h, x, y)
-        
+        cams = [self.cams[i].copy() for i in range(self.num_view)]        
 
         if crop:
             # Build new crop tuples
@@ -524,6 +525,11 @@ class DepthEstimation_forRGBD():
 
             self.ref_crops = crops
 
+            cropped_alpha_masks_tensor = crop_imgs_tensor(alpha_masks, crops, self.device)  # V*1*crop_H*crop_W
+            cropped_alpha_masks_tensor = cropped_alpha_masks_tensor.permute((0,2,3,1)).squeeze()  # V*crop_H*crop_W*1 -> V*crop_H*crop_W
+
+            cropped_imgs = crop_images(src_imgs, crops)
+
             crop_w, crop_h = crops[0][0], crops[0][1]
             cropped_imgs_tensor = crop_imgs_tensor(imgs_tensor_01, crops, self.device)
 
@@ -538,8 +544,10 @@ class DepthEstimation_forRGBD():
         
         else:
             crops = self.ref_crops
+            crop_tensor = [torch.tensor(crop).to(self.device) for crop in crops]
+            crop_tensor = torch.stack(crop_tensor, 0)   # 5*(crop_w, crop_h, x, y)
             
-            cropped_bgrs_tensor = crop_imgs_tensor(self.bgrs_tensor_01, ref_crop_tensor, self.device)
+            cropped_bgrs_tensor = crop_imgs_tensor(self.bgrs_tensor_01, crop_tensor, self.device)
             cropped_imgs = crop_images(src_imgs, crops)
             cropped_cams = adjust_cam_para(cams, crops)
 
@@ -547,7 +555,7 @@ class DepthEstimation_forRGBD():
 
             cropped_imgs_np = np.stack(cropped_imgs, axis=0)
             cropped_imgs_tensor = torch.tensor(cropped_imgs_np).permute(0,3,1,2).float().to(self.device)   # V*3*H*W
-            cropped_imgs_tensor = (imgs_tensor/255.0)
+            cropped_imgs_tensor = (cropped_imgs_tensor/255.0)
 
             s_cropped_cams_np = np.stack(s_cropped_cams, axis=0)
             s_cropped_cams_tensor = torch.tensor(s_cropped_cams_np).float().to(self.device)
@@ -556,7 +564,9 @@ class DepthEstimation_forRGBD():
             s_cropped_imgs_tensor = F.interpolate(cropped_imgs_tensor, size=None, scale_factor=(r_scale, r_scale))
             s_cropped_imgs_tensor = s_cropped_imgs_tensor.unsqueeze(0)
 
-            alpha_masks = self.Matting_model(cropped_imgs_tensor, cropped_bgrs_tensor)
+            cropped_alpha_masks = self.Matting_model(cropped_imgs_tensor, cropped_bgrs_tensor)[0]
+            cropped_alpha_masks_tensor = cropped_alpha_masks.permute(0,2,3,1).squeeze()  # V*H*W*1 -> V*H*W
+
 
 
         preds = self.FastMVSNet_model(imgs_tensor = s_cropped_imgs_tensor, cams_tensor = s_cropped_cams_tensor, img_scales=(0.25, 0.5, 1.0), inter_scales=(0.75, 0.15, 0.15), blending=None, isGN=isGN, isTest=True)
@@ -582,7 +592,7 @@ class DepthEstimation_forRGBD():
                 # propagation_st = time.time()
                 # mask
 
-                depths = warping_propagation_singleframe(s_cropped_imgs_tensor, refined_masked_depth_tensor, refined_mask_tensor, s_cropped_cams_tensor[0][:,1][:3, :3], s_cropped_cams_tensor[0][:,0], device=self.device)
+                depths = warping_propagation_singleframe(s_cropped_imgs_tensor, refined_masked_depth_tensor, refined_mask_tensor, device=self.device)
                 refined_masked_depth_tensor = depths
 
                 # propagation_et = time.time()
@@ -601,17 +611,23 @@ class DepthEstimation_forRGBD():
         else:
             refined_masked_depth_tensor = depth_tensor
 
-        refined_mask_tensor = F.interpolate(refined_mask_tensor.float(), size=None, scale_factor=(1/r_scale, 1/r_scale), mode='bilinear')
-        alpha_masks_tensor = alpha_masks.permute((0,2,3,1)).squeeze()  # V*H*W*1 -> V*H*W
 
+        # if checkConsistancy, use refined mask + matting mask
         if checkConsistancy:
+            refined_mask_tensor = F.interpolate(refined_mask_tensor.float(), size=None, scale_factor=(1/r_scale, 1/r_scale), mode='bilinear')
             refined_mask_tensor[refined_mask_tensor < 1] = 0
-            out_masks_tensor = (alpha_masks_tensor * refined_mask_tensor[0])
+            out_masks_tensor = (cropped_alpha_masks_tensor * refined_mask_tensor[0])
         else:
-            out_masks_tensor = alpha_masks_tensor
+            out_masks_tensor = cropped_alpha_masks_tensor
             
         out_mask_np = out_masks_tensor.to(torch.device('cpu')).numpy()
         masks = [np.uint8(out_mask_np[i]*255) for i in range(self.num_view)]
+
+
+        depths = depth_tensor2numpy(refined_masked_depth_tensor, add_rsize=1/r_scale)
+
+        depths = [cv2.resize(depths[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
+
 
         # print(f"crop: {crop_et - crop_st}")
         # print(f"resize and trans to device: {trans_et - crop_et}")
@@ -629,7 +645,7 @@ class DepthEstimation_forRGBD():
 
         return {
             "num_view": self.num_view,
-            "imgs": src_imgs,
+            "imgs": cropped_imgs,
             "depths": depths, 
             "masks": masks, 
             "crops": crops
