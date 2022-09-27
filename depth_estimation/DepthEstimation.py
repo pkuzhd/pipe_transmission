@@ -1,6 +1,7 @@
 from email.mime import base
 import os
 import sys
+from turtle import width
 from cv2 import IMWRITE_PNG_STRATEGY_DEFAULT
 from matplotlib import image
 import torch
@@ -88,9 +89,13 @@ def get_crops(imgs, bgrs, base_size):
     # get new crops base point
     for i in range(num_view):
         w, h, x, y = rects[i]
-        newx, newy = x+w-maxw, y+h-maxh
+        # newx, newy = x+w-maxw, y+h-maxh
+        newx, newy = x - (maxw - w)/2, y - (maxh - h)/2 
         if newx < 0: newx = 0
         if newy < 0: newy = 0
+        if newx + maxw > img_w: newx = img_w - maxw
+        if newy + maxh > img_h: newy = img_h - maxh
+
         crops.append((maxw, maxh, newx, newy))
 
     return crops, maxw, maxh
@@ -235,9 +240,11 @@ def get_crops_from_mask(mask_tensor, base_size):
 
     for i in range(num):
         w, h, x, y = rects[i]
-        newx, newy = x + w - maxw, y + h - maxh
+        newx, newy = x + (w - maxw)/2, y + (h - maxh)/2
         if newx < 0: newx = 0
         if newy < 0: newy = 0
+        if newx + maxw > width: newx = width - maxw
+        if newy + maxh > height: newy = height - maxh
         # print((maxw, maxh, newx, newy))
         crops.append((int(maxw), int(maxh), int(newx), int(newy)))
 
