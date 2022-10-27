@@ -1,3 +1,4 @@
+from asyncio import FastChildWatcher
 import cv2
 import numpy as np
 import torch
@@ -9,12 +10,18 @@ from utils.ImageReceiver import ImageData, ImageReceiver
 from utils.RGBDSender import RGBDData, RGBDSender
 from depth_estimation.data_preparation import load_cam_paras, scale_camera
 
-imgs = [cv2.imread(f"/data/GoPro/videos/teaRoom/sequence/1080p/video/{i+1}-147.png") for i in range(5)]
-# imgs = [cv2.resize(cv2.imread(f"/data/GoPro/videos/teaRoom/frames/{i+1}.1-14.png"), None, fx=1/2, fy=1/2) for i in range(5)]
-bgrs = [cv2.imread(f"/data/GoPro/videos/teaRoom/sequence/1080p/background/{i + 1}.png") for i in range(5)]
-cam_paths = [f"/home/wph/pipe_transmission/cam_paras/0000000{i}_cam.txt" for i in range(5)]
+# imgs = [cv2.imread(f"/data/GoPro/videos/teaRoom/sequence/1080p/video/{i+1}-102.png") for i in range(5)]
+# # imgs = [cv2.resize(cv2.imread(f"/data/GoPro/videos/teaRoom/frames/{i+1}.1-14.png"), None, fx=1/2, fy=1/2) for i in range(5)]
+# bgrs = [cv2.imread(f"/data/GoPro/videos/teaRoom/sequence/1080p/background/{i + 1}.png") for i in range(5)]
+# cam_paths = [f"/home/wph/pipe_transmission/cam_paras/0000000{i}_cam.txt" for i in range(5)]
+# cams = [load_cam_paras(open(cam_paths[i]), num_depth=32, interval_scale=0.26) for i in range(5)]
+# cams = [scale_camera(cams[i], scale=0.5) for i in range(5)]
+
+imgs = [cv2.imread(f"/data/zhanghaodan/web/demo2/videos/1-{i + 1}.png") for i in range(5)]
+bgrs = [cv2.imread(f"/data/zhanghaodan/web/demo2/background/1-{i + 1}.png") for i in range(5)]
+cam_paths = [f"/data/zhanghaodan/web/para/0000000{i}_cam.txt" for i in range(5)]
 cams = [load_cam_paras(open(cam_paths[i]), num_depth=32, interval_scale=0.26) for i in range(5)]
-cams = [scale_camera(cams[i], scale=0.5) for i in range(5)]
+
 matting_model_path = '/home/wph/BackgroundMatting/TorchScript/torchscript_resnet50_fp32.pth'
 fmn_model_path = '/home/wph/FastMVSNet/outputs/pretrained.pth'
 
@@ -24,7 +31,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 de_rgbd = DepthEstimation_forRGBD(5, bgrs, cams, matting_model_path, fmn_model_path, device)
 
 # GN CONSIST PROPAGA CONSIST
-dirs = '/data/pipe_depth/wph/test_crop/'
+dirs = '/data/pipe_depth/wph/1027_demo2/demo2/'
 WRITE = 1
 BYTES = 0
 
@@ -32,15 +39,12 @@ if not os.path.exists(dirs):
     print("create new file")
     os.makedirs(dirs)
 
-for i in range(2):
+for i in range(1):
     # cur_imgs = np.stack(imgs)
     data = ImageData(5, imgs)
     st = time.time()
 
-    rgbd_data = de_rgbd.getRGBD_test(data, crop=(i==0), isGN=False, checkConsistancy=True, propagation=True, checkSecondConsistancy=True)
-    dirs = f'/data/pipe_depth/wph/test_crop/scan_{i}/'
-    if not os.path.exists(dirs):
-        os.makedirs(dirs)
+    rgbd_data = de_rgbd.getRGBD_test(data, crop=(i==0), isGN=False, checkConsistancy=True, propagation=True, checkSecondConsistancy=True, show_depth=False)
 
     print(f"total time: {time.time() - st}")
 

@@ -163,7 +163,7 @@ def get_depth_init_tensor(preds, keyword="coarse_depth_map"):
     return depth_tensor
 
 
-def depth_tensor2numpy(depths_tensor, add_rsize=1):
+def depth_tensor2numpy(depths_tensor, add_rsize=1, SHOW = False):
     """
         Trans depths from tensor to numpy
         and change all d = 0 to d[d>0].min() (for next step's resize)
@@ -177,20 +177,18 @@ def depth_tensor2numpy(depths_tensor, add_rsize=1):
     # depths_tensor = F.interpolate(depths_tensor, size=None, scale_factor=(add_rsize, add_rsize))
     for i in range(view_num):
         tmp = depths_tensor[0][i].detach().numpy()
-        # tmp[tmp==0] = tmp[tmp>0].max()
 
-        # tmp = 1.0 / tmp
-        # tmp[tmp < 0] = 0.5
-        # maxn = np.max(tmp)#1.6###1.6
-        # minn = np.min(tmp)#0.7###1.0
-        # maxn = 1.6
-        # minn = 0.5
-        # print('max:{},min:{}'.format(maxn, minn))
-        # print(f"delta: {maxn-minn}")
-        # tmp = (tmp - minn) / (maxn - minn) *255.0
-        # tmp = tmp*255.0
-        # tmp = tmp.astype('uint8')
-        # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
+        if SHOW:
+            maxn = np.max(tmp)#1.6###1.6
+            minn = np.min(tmp)#0.7###1.0
+            # maxn = 1.6
+            # minn = 0.5
+            # print('max:{},min:{}'.format(maxn, minn))
+            # print(f"delta: {maxn-minn}")
+            tmp = (tmp - minn) / (maxn - minn) *255.0
+            # tmp = tmp*255.0
+            # tmp = tmp.astype('uint8')
+            # tmp = cv2.applyColorMap(tmp, cv2.COLORMAP_RAINBOW)
         
         # tmp_ori = tmp_ori * (alpha[i][:,:,0]/255)
 
@@ -264,7 +262,8 @@ class DepthEstimation_forRGBD():
         self.bgrs_tensor_01 = self.bgrs_tensor/255.0     # V*3*H*W
         self.cams = cams.copy() # intrs：cams[idx][1][:3, :3]; extrs: cams[idx][0] 
 
-        self.ref_crops = [(768, 896, 768, 173), (768, 896, 695, 95), (768, 896, 613, 182), (768, 896, 567, 184), (768, 896, 443, 143)]
+        # self.ref_crops = [(768, 896, 768, 173), (768, 896, 695, 95), (768, 896, 613, 182), (768, 896, 567, 184), (768, 896, 443, 143)]
+        self.ref_crops = [(1920, 1024, 0, 0), (1920, 1024, 0, 0), (1920, 1024, 0, 0), (1920, 1024, 0, 0), (1920, 1024, 0, 0)]
 
 
         # Crop: no model
@@ -502,7 +501,7 @@ class DepthEstimation_forRGBD():
         }
             
 
-    def getRGBD_test(self, imgdata, crop=True, isGN=False, checkConsistancy=False, propagation=False, checkSecondConsistancy=False):
+    def getRGBD_test(self, imgdata, crop=True, isGN=False, checkConsistancy=False, propagation=False, checkSecondConsistancy=False, show_depth = False):
         """
             input: ImageData
             return: (dict)
@@ -631,7 +630,7 @@ class DepthEstimation_forRGBD():
         masks = [np.uint8(out_mask_np[i]*255) for i in range(self.num_view)]
 
 
-        depths = depth_tensor2numpy(refined_masked_depth_tensor, add_rsize=1/r_scale)
+        depths = depth_tensor2numpy(refined_masked_depth_tensor, add_rsize=1/r_scale, SHOW=show_depth)
 
         depths = [cv2.resize(depths[i], None, fx=1/r_scale, fy=1/r_scale) for i in range(5)]
 

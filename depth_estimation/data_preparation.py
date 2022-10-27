@@ -86,8 +86,9 @@ def adjust_cam_para(cams, crops):
     return cams
 
 
-def scale_camera(cam, scale=1):
+def scale_camera(cams, scale=1):
     """ resize input in order to produce sampled depth map """
+    cam = cams.copy()
     # focal:
     cam[1][0][0] = cam[1][0][0] * scale
     cam[1][1][1] = cam[1][1][1] * scale
